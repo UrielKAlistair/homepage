@@ -34,12 +34,12 @@ const Index = () => {
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
-              Hi, I'm <span className="text-primary">Your Name</span>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl animate-fade-in">
+              <span className="text-primary animate-pulse">Elegance</span> carved from{" "}
+              <span className="text-primary animate-pulse">restless thought</span>
             </h1>
-            <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto">
-              Full-stack developer passionate about creating innovative solutions and beautiful user experiences. 
-              I build modern web applications using cutting-edge technologies.
+            <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto animate-fade-in">
+              Where creativity meets precision in the digital realm.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Button size="lg">
