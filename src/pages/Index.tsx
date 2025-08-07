@@ -6,6 +6,7 @@ import Navbar from "@/components/navbar";
 import SlideIn from "@/components/slidein";
 import { useEffect, useRef, useState } from 'react';
 import { svg, animate } from "animejs";
+import RevealOverlay from "@/components/reveal";
 
 function HeroText() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,7 +103,7 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
       {/* Hero Section */}
       <section className="relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
@@ -111,45 +112,50 @@ const Index = () => {
 
 
       {/* Projects Section */}
-      <section className="py-20 bg-background">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+      <section className="py-20 bg-background relative">
+        <div className="container mx-auto sm:px-6 lg:px-8">
+          <div className="text-center mb-16 relative">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Featured Projects
             </h2>
+
+
             <p className="mt-4 text-lg text-muted-foreground">
               Here are some of my recent projects that showcase my skills and passion for development.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projects.map((project, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    {project.title}
-                    <div className="flex space-x-2">
-                      <a href={project.github} className="text-muted-foreground hover:text-foreground">
-                        <Github className="h-4 w-4" />
-                      </a>
-                      <a href={project.demo} className="text-muted-foreground hover:text-foreground">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
+          <div className="flex relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {projects.map((project, index) => (
+                <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      {project.title}
+                      <div className="flex space-x-2">
+                        <a href={project.github} className="text-muted-foreground hover:text-foreground">
+                          <Github className="h-4 w-4" />
+                        </a>
+                        <a href={project.demo} className="text-muted-foreground hover:text-foreground">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </CardTitle>
+                    <CardDescription>{project.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {project.technologies.map((tech, techIndex) => (
+                        <Badge key={techIndex} variant="secondary">
+                          {tech}
+                        </Badge>
+                      ))}
                     </div>
-                  </CardTitle>
-                  <CardDescription>{project.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {project.technologies.map((tech, techIndex) => (
-                      <Badge key={techIndex} variant="secondary">
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <RevealOverlay />
           </div>
         </div>
       </section>
@@ -163,7 +169,6 @@ const Index = () => {
             className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
           />
         </SlideIn>
-
 
         <div className="flex flex-col gap-6">
           <SlideIn>
@@ -185,7 +190,7 @@ const Index = () => {
               </p>
             </SlideIn>
 
-            <SlideIn>
+            <SlideIn duration={650}>
               <p className="leading-relaxed">
                 I'm wired for understanding and creation — breaking ideas down and building them back up,
                 be it code, math, or physics. That instinct's led me to IITM, a great many beautiful
@@ -202,7 +207,7 @@ const Index = () => {
               </p>
             </SlideIn>
           </div>
-          </div>
+        </div>
       </section>
 
 
