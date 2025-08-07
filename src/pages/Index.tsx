@@ -1,7 +1,80 @@
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Github, Linkedin, Mail, ExternalLink } from "lucide-react";
+import ScrambleText from "@/components/scramble";
+import Navbar from "@/components/navbar";
+import SlideIn from "@/components/slidein";
+import { useEffect, useRef, useState } from 'react';
+import { svg, animate } from "animejs";
+
+function HeroText() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const animationsRef = useRef<any[]>([]); // To store animation instances
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetch("/header.svg")
+      .then((res) => res.text())
+      .then((svgText) => {
+        if (!isMounted || !containerRef.current) return;
+
+        containerRef.current.innerHTML = svgText;
+
+        const paths = Array.from(containerRef.current.querySelectorAll("path"));
+
+        const svgEl = containerRef.current.querySelector("svg");
+        if (svgEl) {
+          // Make SVG responsive
+          svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+          svgEl.style.display = "block";
+          svgEl.style.width = "100%";
+          svgEl.style.height = "100%";
+          svgEl.style.maxWidth = "100%";
+          svgEl.style.maxHeight = "100%";
+        }
+
+        // Ensure strokes are styled for drawing
+        paths.forEach((path) => {
+          path.setAttribute("stroke", "currentColor");
+          path.setAttribute("fill-opacity", "0");
+          path.setAttribute("stroke-width", "0.8");
+        });
+
+        // Animate each path
+        const animations = paths.map((path, index) => {
+          const drawable = svg.createDrawable(path);
+          return animate(drawable, {
+            draw: ["0 0", "0 1"],
+            duration: 1000,
+            easing: "easeInOutQuad",
+            delay: 2800 - 40 * index,
+            onComplete: () => {
+              animate(path, {
+                fillOpacity: [0, 1],
+                duration: 1000,
+                easing: "easeInOutQuad",
+              });
+            }
+          });
+        });
+
+
+        animationsRef.current = animations;
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="max-w-[70vw] aspect-[11/1] mx-auto"
+    />
+  );
+}
 
 const Index = () => {
   const projects = [
@@ -13,7 +86,7 @@ const Index = () => {
       demo: "#",
     },
     {
-      title: "Project Two", 
+      title: "Project Two",
       description: "Mobile-first e-commerce platform with modern design",
       technologies: ["Next.js", "Tailwind CSS", "Stripe", "Vercel"],
       github: "#",
@@ -30,40 +103,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl animate-fade-in">
-              <span className="text-primary animate-pulse">Elegance</span> carved from{" "}
-              <span className="text-primary animate-pulse">restless thought</span>
-            </h1>
-            <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto animate-fade-in">
-              Where creativity meets precision in the digital realm.
-            </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Button size="lg">
-                View My Work
-              </Button>
-              <Button variant="outline" size="lg">
-                <Mail className="mr-2 h-4 w-4" />
-                Contact Me
-              </Button>
-            </div>
-            <div className="mt-8 flex justify-center space-x-6">
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Github className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Linkedin className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Mail className="h-6 w-6" />
-              </a>
-            </div>
-          </div>
-        </div>
+      <section className="relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
+        <HeroText />
       </section>
+
 
       {/* Projects Section */}
       <section className="py-20 bg-background">
@@ -76,7 +121,7 @@ const Index = () => {
               Here are some of my recent projects that showcase my skills and passion for development.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {projects.map((project, index) => (
               <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
@@ -110,44 +155,62 @@ const Index = () => {
       </section>
 
       {/* About Section */}
-      <section className="py-20 bg-muted/50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                About Me
-              </h2>
-            </div>
-            <div className="prose prose-lg max-w-none text-muted-foreground">
-              <p className="text-center">
-                I'm a passionate full-stack developer with expertise in modern web technologies. 
-                I love creating efficient, scalable applications that solve real-world problems. 
-                When I'm not coding, you can find me exploring new technologies, contributing to open-source projects, 
-                or sharing knowledge with the developer community.
+      <section className="grid grid-cols-2 md:grid-cols-2 items-center py-20 bg-muted/50">
+        <SlideIn>
+          <img
+            src="/uk-sunrise.jpg"
+            alt="UK staring into the sunrise at coorg"
+            className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
+          />
+        </SlideIn>
+
+
+        <div className="flex flex-col gap-6">
+          <SlideIn>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-center">
+              About Me
+            </h2>
+          </SlideIn>
+          <div className="prose prose-lg max-w-none text-muted-foreground px-5 space-y-2">
+
+            <SlideIn>
+              <p className="leading-relaxed">
+                I'm a curious builder drawn to elegance. (and coffee.)
               </p>
-            </div>
+            </SlideIn>
+
+            <SlideIn>
+              <p className="leading-relaxed">
+                Lazy, Impatient, Vainglorious: I've maxed out the Programmer primary stats.
+              </p>
+            </SlideIn>
+
+            <SlideIn>
+              <p className="leading-relaxed">
+                I'm wired for understanding and creation — breaking ideas down and building them back up,
+                be it code, math, or physics. That instinct's led me to IITM, a great many beautiful
+                problems and fascinating people to work on them with. I love to create things, be it a
+                clean UI, or a clever piece of unseen code. They are to me, a game, a puzzle, and an
+                art; they are to me, beauty itself.
+              </p>
+            </SlideIn>
+
+            <SlideIn>
+              <p className="leading-relaxed">
+                When not writing code, I will be found writing poetry, speedrunning celeste or dying
+                in the pantheons, waiting for silksong.
+              </p>
+            </SlideIn>
           </div>
-        </div>
+          </div>
       </section>
 
+
+
       {/* Contact Section */}
-      <section className="py-20 bg-background">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Let's Work Together
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              I'm always interested in new opportunities and collaborations. 
-              Feel free to reach out if you'd like to discuss a project or just say hello!
-            </p>
-            <div className="mt-10">
-              <Button size="lg">
-                <Mail className="mr-2 h-4 w-4" />
-                Get In Touch
-              </Button>
-            </div>
-          </div>
+      <section className="py-5 bg-background">
+        <div className="text-center ">
+          <ScrambleText text="echo $SLEEP > /dev/null" className="matrix-text" />
         </div>
       </section>
     </div>
