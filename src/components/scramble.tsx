@@ -1,59 +1,69 @@
-import { useEffect, useRef} from "react";
+import { useEffect, useRef, useState } from "react";
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 interface Props {
   text: string;
   className?: string;
+  visibleMask: boolean[];
 }
 
-const ScrambleText = ({ text, className = "" }: Props) => {
+const ScrambleText = ({ text, visibleMask, className = "" }: Props) => {
   const ref = useRef<HTMLHeadingElement>(null);
+  const [displayText, setDisplayText] = useState(text);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (!visibleMask[3]) return;
+
+    el.dataset.value = text;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-
-          el.dataset.value = text;
-
           let iteration = 0;
           let interval: ReturnType<typeof setInterval> | null = null;
 
           interval = setInterval(() => {
             if (!el.dataset.value) return;
 
-            el.innerText = el.innerText
-              .split("")
-              .map((letter, index) => {
-                if (index < iteration || letter === " ") {
-                  return el.dataset.value![index];
+            setDisplayText(prev =>
+              prev.split("").map((_, index) => {
+                if (index**3 < iteration**2 || text[index] === " ") {
+                  return text[index];
                 }
-                return letters[Math.floor(Math.random() * 26)];
-              })
-              .join("");
+                return letters[Math.floor(Math.random() * letters.length)];
+              }).join("")
+            );
 
-            if (iteration >= el.dataset.value.length) {
+            if (el.dataset.value.length**3 <= iteration**2) {
               clearInterval(interval!);
             }
-
-            iteration += 1 / 3;
-          }, 30);
+            iteration += 1;
+          }, 40);
         }
       },
       { threshold: 0.1 }
     );
-    
     observer.observe(el);
     return () => observer.disconnect();
-  }, [text]);
+  }, [text,visibleMask[3]]);
 
   return (
-    <h1 ref={ref} className={className}>
-      {text}
+    <h1 ref={ref} className={className} style={{ gap: "0.05em" }}>
+      {displayText.split("").map((char, i) => (
+        <span
+          key={i}
+          style={{
+            opacity: visibleMask[i] ? 1 : 0,
+            transition: "opacity 0.1s linear",
+            whiteSpace: "pre",
+          }}
+        >
+          {char}
+        </span>
+      ))}
     </h1>
   );
 };

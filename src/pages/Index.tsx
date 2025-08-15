@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Github, Linkedin, Mail, ExternalLink } from "lucide-react";
-import ScrambleText from "@/components/scramble";
 import Navbar from "@/components/navbar";
 import SlideIn from "@/components/slidein";
 import { useEffect, useRef, useState } from 'react';
@@ -103,7 +102,7 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-hidden">
       <Navbar />
       {/* Hero Section */}
       <section className="relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
@@ -112,7 +111,7 @@ const Index = () => {
 
 
       {/* Projects Section */}
-      <section className="py-20 bg-background relative">
+      <section className="py-20 bg-muted/50 relative">
         <div className="container mx-auto sm:px-6 lg:px-8">
           <div className="text-center mb-16 relative">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -155,13 +154,12 @@ const Index = () => {
                 </Card>
               ))}
             </div>
-            <RevealOverlay />
           </div>
         </div>
       </section>
 
       {/* About Section */}
-      <section className="grid grid-cols-2 md:grid-cols-2 items-center py-20 bg-muted/50">
+      <section className="grid grid-cols-2 md:grid-cols-2 items-center py-20 bg-muted/30">
         <SlideIn>
           <img
             src="/uk-sunrise.jpg"
@@ -213,10 +211,8 @@ const Index = () => {
 
 
       {/* Contact Section */}
-      <section className="py-5 bg-background">
-        <div className="text-center ">
-          <ScrambleText text="echo $SLEEP > /dev/null" className="matrix-text" />
-        </div>
+      <section className="py-5 bg-background relative">
+        <RevealOverlay text="echo $SLEEP > /dev/null" className="matrix-text" />
       </section>
     </div>
   );

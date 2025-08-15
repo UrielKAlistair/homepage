@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ScrambleText from "./scramble";
 
 const FRAME_COUNT = 46;
 const FRAME_PATH = (index: number) =>
@@ -10,13 +11,22 @@ const FRAME_INTERVAL = 1000 / FPS;
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 600;
 
-const RevealSprite = () => {
+interface Props {
+  text: string;
+  className?: string;
+}
+
+const RevealSprite = ({ text, className = "" }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textWrapperRef = useRef<HTMLDivElement>(null);
+  const [visibleMask, setVisibleMask] = useState<boolean[]>([]);
+
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [looping, setLooping] = useState(false);
   const [opacity, setOpacity] = useState(1);
   const [inView, setInView] = useState(false);
+  const letterPositions = useRef<number[]>([]);
 
   // Load images on mount
   useEffect(() => {
@@ -36,17 +46,31 @@ const RevealSprite = () => {
     }
   }, []);
 
-  useEffect(() => {    
+  // Measure letter positions once after mount
+  useEffect(() => {
+    if (!textWrapperRef.current) return;
+    const spans = textWrapperRef.current.querySelectorAll("span");
+    const offsets: number[] = [];
+    spans.forEach((span) => {
+      const rect = span.getBoundingClientRect();
+      offsets.push(rect.left + rect.width / 2); // center of letter
+    });
+    letterPositions.current = offsets;
+    setVisibleMask(new Array(offsets.length).fill(false));
+  }, []);
+
+  // Intersection Observer
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const observer = new IntersectionObserver(([entry]) => {
       setInView(entry.isIntersecting);
     }, {
-      threshold: 0.9
+      threshold: 0.65
     });
 
     observer.observe(canvasRef.current!);
-    if(inView){
+    if (inView) {
       observer.disconnect()
     }
 
@@ -55,9 +79,9 @@ const RevealSprite = () => {
     };
   })
 
+  // Animation
   useEffect(() => {
     if (images.length !== FRAME_COUNT) return;
-    if (!inView) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -79,11 +103,18 @@ const RevealSprite = () => {
 
       if (!looping) {
         ctx.drawImage(images[internalFrame], 0, 0);
+        if (!inView) return;
+
         internalFrame++;
 
         if (internalFrame >= 16) {
           currentX += moveSpeed;
           container.style.transform = `translate(${currentX}px, -30%)`;
+          const newMask = letterPositions.current.map(
+            (pos) => pos < currentX
+          );
+          setVisibleMask(newMask);
+
         }
 
         if (internalFrame >= FRAME_COUNT) {
@@ -103,6 +134,11 @@ const RevealSprite = () => {
 
         currentX += moveSpeed;
         container.style.transform = `translate(${currentX}px, -30%)`;
+        const newMask = letterPositions.current.map(
+          (pos) => pos < currentX
+        );
+        setVisibleMask(newMask);
+
 
         if (currentX > endX) {
           setOpacity(0);
@@ -117,33 +153,43 @@ const RevealSprite = () => {
   }, [images, inView]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: 0,
-        transform: "translate(0, -30%)",
-        width: `${CANVAS_WIDTH}px`,
-        height: `${CANVAS_HEIGHT}px`,
-        zIndex: 9999,
-        pointerEvents: "none",
-        willChange: "transform",
-        contain: "layout style size",
-        opacity: opacity,
-      }}
-      className="hidden lg:block"
-    >
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
+    <div>
+      <div ref={textWrapperRef}>
+        <ScrambleText
+          text={text}
+          visibleMask={visibleMask}
+          className={className + " flex items-center justify-center"}
+        />
+      </div>
+
+      <div
+        ref={containerRef}
         style={{
-          width: "200px",
-          height: "300px",
-          background: "transparent",
+          position: "absolute",
+          top: "50%",
+          left: 0,
+          transform: "translate(0, -30%)",
+          width: `${CANVAS_WIDTH}px`,
+          height: `${CANVAS_HEIGHT}px`,
+          zIndex: 9999,
+          pointerEvents: "none",
+          willChange: "transform",
+          contain: "layout style size",
+          opacity: opacity,
         }}
-      />
+        className="hidden lg:block"
+      >
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          style={{
+            width: "200px",
+            height: "300px",
+            background: "transparent",
+          }}
+        />
+      </div>
     </div>
   );
 };
