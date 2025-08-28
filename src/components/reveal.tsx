@@ -10,6 +10,7 @@ const FPS = 14;
 const FRAME_INTERVAL = 1000 / FPS;
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 600;
+const yShift = -27;
 
 interface Props {
   text: string;
@@ -109,7 +110,7 @@ const RevealSprite = ({ text, className = "" }: Props) => {
 
         if (internalFrame >= 16) {
           currentX += moveSpeed;
-          container.style.transform = `translate(${currentX}px, -30%)`;
+          container.style.transform = `translate(${currentX}px, ${yShift}%)`;
           const newMask = letterPositions.current.map(
             (pos) => pos < currentX
           );
@@ -133,7 +134,7 @@ const RevealSprite = ({ text, className = "" }: Props) => {
         loopIndex++;
 
         currentX += moveSpeed;
-        container.style.transform = `translate(${currentX}px, -30%)`;
+        container.style.transform = `translate(${currentX}px, ${yShift}%)`;
         const newMask = letterPositions.current.map(
           (pos) => pos < currentX
         );
@@ -168,7 +169,7 @@ const RevealSprite = ({ text, className = "" }: Props) => {
           position: "absolute",
           top: "50%",
           left: 0,
-          transform: "translate(0, -30%)",
+          transform: `translate(0, ${yShift}%)`,
           width: `${CANVAS_WIDTH}px`,
           height: `${CANVAS_HEIGHT}px`,
           zIndex: 9999,
