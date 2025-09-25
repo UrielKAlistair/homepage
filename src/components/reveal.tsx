@@ -11,6 +11,8 @@ const FRAME_INTERVAL = 1000 / FPS;
 const CANVAS_WIDTH = 400;
 const CANVAS_HEIGHT = 600;
 const yShift = -27;
+const referenceScreenW = 1920;
+const referenceScreenH = 1080;
 
 interface Props {
   text: string;
@@ -178,7 +180,6 @@ const RevealSprite = ({ text, className = "" }: Props) => {
           contain: "layout style size",
           opacity: opacity,
         }}
-        className="hidden lg:block"
       >
         <canvas
           ref={canvasRef}

@@ -36,7 +36,7 @@ const SlideIn = ({
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [hasAnimated, threshold, delay]);
+  }, [threshold]);
 
   return (
     <div ref={wrapperRef} className="relative overflow-hidden">
@@ -45,10 +45,9 @@ const SlideIn = ({
         className={`
           transition-transform transition-opacity ease-out
           will-change-transform
-          ${
-            hasAnimated
-              ? "translate-y-0 opacity-100"
-              : "translate-y-[110%] opacity-0"
+          ${hasAnimated
+            ? "translate-y-0 opacity-100"
+            : "translate-y-[110%] opacity-0"
           }
           ${className}
         `}

@@ -89,16 +89,9 @@ const Home = () => {
             </section>
 
             {/* About Section */}
-            <section className="grid grid-cols-2 md:grid-cols-2 items-center py-20 bg-muted/30">
-                <SlideIn>
-                    <img
-                        src="/uk-sunrise.jpg"
-                        alt="UK staring into the sunrise at coorg"
-                        className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
-                    />
-                </SlideIn>
+            <section className="flex flex-col md:grid md:grid-cols-2 items-center py-20 bg-muted/30">
 
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 order-1 md:order-2 pb-10">
                     <SlideIn>
                         <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-center">
                             About Me
@@ -130,17 +123,24 @@ const Home = () => {
 
                         <SlideIn>
                             <p className="leading-relaxed">
-                                When not writing code, I will be found writing poetry, speedrunning celeste or dying
-                                in the pantheons, waiting for silksong.
+                                When not writing code, I will be found writing poetry, speedrunning celeste or farming emblem of severed fate.
                             </p>
                         </SlideIn>
                     </div>
+                </div>
+                <div className="order-2 md:order-1">
+                    <SlideIn>
+                        <img
+                            src="/uk-sunrise.jpg"
+                            alt="UK staring into the sunrise at coorg"
+                            className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
+                        />
+                    </SlideIn>
                 </div>
             </section>
 
 
 
-            {/* Contact Section */}
             <section className="py-5 bg-background relative">
                 <RevealOverlay text="echo $SLEEP > /dev/null" className="matrix-text" />
             </section>
