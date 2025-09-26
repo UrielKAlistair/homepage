@@ -142,7 +142,7 @@ const Home = () => {
 
 
             <section className="py-5 bg-background relative">
-                <RevealOverlay text="echo $SLEEP > /dev/null" className="matrix-text" />
+                <RevealOverlay text="echo $SLEEP > /dev/null" />
             </section>
         </div>
     );

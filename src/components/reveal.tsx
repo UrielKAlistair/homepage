@@ -1,170 +1,283 @@
 import { useEffect, useRef, useState } from "react";
-import ScrambleText from "./scramble";
 
-const FRAME_COUNT = 46;
-const FRAME_PATH = (index: number) =>
-  `/hollow-knight/frame${String(index).padStart(4, "0")}.png`;
-
-const LOOP_FRAMES = [41, 42, 43, 44];
-const FPS = 14;
-const FRAME_INTERVAL = 1000 / FPS;
-const CANVAS_WIDTH = 400;
-const CANVAS_HEIGHT = 600;
-const yShift = -27;
-const referenceScreenW = 1920;
-const referenceScreenH = 1080;
-
-interface Props {
+interface RevealConfig {
   text: string;
-  className?: string;
+  startThreshold?: number;
+  moveThreshold?: number;
+  moveDurationMs?: number;
 }
 
-const RevealSprite = ({ text, className = "" }: Props) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+const RevealOverlay = (config: RevealConfig) => {
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const textWrapperRef = useRef<HTMLDivElement>(null);
-  const [visibleMask, setVisibleMask] = useState<boolean[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const textRef = useRef<HTMLHeadingElement>(null);
 
+  const {
+    text,
+    startThreshold = 0.1,
+    moveThreshold = 0.3,
+    moveDurationMs = 3000,
+  } = config;
+
+  const frameCount = 46
+  const framePath = (index: number) => `/hollow-knight/frame${String(index).padStart(4, "0")}.png`
+
+  // 1. Load Images (for animation)
   const [images, setImages] = useState<HTMLImageElement[]>([]);
-  const [looping, setLooping] = useState(false);
-  const [opacity, setOpacity] = useState(1);
-  const [inView, setInView] = useState(false);
-  const letterPositions = useRef<number[]>([]);
-
-  // Load images on mount
   useEffect(() => {
     const loaded: HTMLImageElement[] = [];
     let count = 0;
 
-    for (let i = 0; i < FRAME_COUNT; i++) {
+    for (let i = 0; i < frameCount; i++) {
       const img = new Image();
-      img.src = FRAME_PATH(i);
+      img.src = framePath(i);
       img.onload = () => {
         count++;
-        if (count === FRAME_COUNT) {
+        if (count === frameCount) {
           setImages(loaded);
+          console.log(`Loaded ${frameCount} images`);
         }
+      };
+      img.onerror = () => {
+        console.error(`Failed to load image: ${framePath(i)}`);
       };
       loaded.push(img);
     }
   }, []);
 
-  // Measure letter positions once after mount
-  useEffect(() => {
-    if (!textWrapperRef.current) return;
-    const spans = textWrapperRef.current.querySelectorAll("span");
-    const offsets: number[] = [];
-    spans.forEach((span) => {
-      const rect = span.getBoundingClientRect();
-      offsets.push(rect.left + rect.width / 2); // center of letter
-    });
-    letterPositions.current = offsets;
-    setVisibleMask(new Array(offsets.length).fill(false));
-  }, []);
+  // 2. Update font size and letter positions on resize (needed for revealing with the moving canvas)
+  const [fontSize, setFontSize] = useState<number>(80);
+  const letterPositions = useRef<number[]>([]);
+  const [isReady, setIsReady] = useState(false); // animation shouldn't start moving until we have positions
+  const [canvasWidth, setCanvasWidth] = useState(200);
+  const canvasHeight = canvasWidth * 1.5
 
-  // Intersection Observer
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      setInView(entry.isIntersecting);
-    }, {
-      threshold: 0.65
-    });
+    function updateLayout() {
+      const MONOSPACE_ASPECT = 0.6;
+      const screenWidth = window.innerWidth;
+      const targetWidth = screenWidth * 0.75;
+      const size = Math.min(targetWidth / (text.length * MONOSPACE_ASPECT), 80);
+      setFontSize(size);
+      setCanvasWidth(Math.sqrt(size * 500));
 
-    observer.observe(canvasRef.current!);
-    if (inView) {
-      observer.disconnect()
+      requestAnimationFrame(() => {
+        if (!textRef.current) return;
+        const spans = textRef.current.querySelectorAll("span");
+        if (!spans || spans.length === 0) return;
+
+        const offsets: number[] = [];
+        spans.forEach((span) => {
+          const rect = span.getBoundingClientRect();
+          offsets.push(rect.left + rect.width / 2);
+        });
+
+        letterPositions.current = offsets;
+        setIsReady(true);
+        console.log("Letter positions recalculated:", offsets.length);
+      });
     }
 
-    return () => {
-      observer.disconnect();
-    };
-  })
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, [text]);
 
-  // Animation
+  // 3. Start animation when user sees it
+  const [inView, setInView] = useState(false);
+  const [startMove, setStartMove] = useState(false);
   useEffect(() => {
-    if (images.length !== FRAME_COUNT) return;
+    const element = containerRef.current;
+    if (!element || !isReady) return;
+
+    const animObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          console.log("Animation triggered");
+          setInView(true);
+          animObserver.disconnect();
+        }
+      },
+      { threshold: startThreshold }
+    );
+
+    const moveObserver = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          console.log("Movement triggered");
+          setStartMove(true);
+          moveObserver.disconnect();
+        }
+      },
+      { threshold: moveThreshold }
+    );
+
+    animObserver.observe(element);
+    moveObserver.observe(element);
+    return () => {
+      animObserver.disconnect();
+      moveObserver.disconnect();
+    }
+  }, [containerRef, isReady]);
+
+  // 4. Knight Animation
+
+  const fps = 14
+  const yShift = -55
+  const [visibleMask, setVisibleMask] = useState<boolean[]>(Array(text.length).fill(false)); // Animation reveals content
+  const [canvasOpacity, setCanvasOpacity] = useState(1); // Disappear at end
+  useEffect(() => {
+    if (images.length !== frameCount || !inView) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const container = containerRef.current;
     if (!canvas || !ctx || !container) return;
 
+    const FRAME_INTERVAL = 1000 / fps;
     const screenW = window.innerWidth;
     const startX = 0;
-    const endX = screenW + 2 * CANVAS_WIDTH;
-    const moveDurationMs = 3000;
+    const endX = screenW + canvasWidth;
     const moveSpeed = (endX - startX) / (moveDurationMs / FRAME_INTERVAL);
 
-    let internalFrame = 0;
-    let loopIndex = 0;
+    const idleFrames = { end: 13, loopStart: 10 };
+    const moveFrames = { start: 16, end: frameCount, loopStart: 41 };
+
     let currentX = startX;
+    let frame = 0;
 
     const interval = setInterval(() => {
-      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      if (!looping) {
-        ctx.drawImage(images[internalFrame], 0, 0);
-        if (!inView) return;
-
-        internalFrame++;
-
-        if (internalFrame >= 16) {
-          currentX += moveSpeed;
-          container.style.transform = `translate(${currentX}px, ${yShift}%)`;
-          const newMask = letterPositions.current.map(
-            (pos) => pos < currentX
-          );
-          setVisibleMask(newMask);
-
-        }
-
-        if (internalFrame >= FRAME_COUNT) {
-          setLooping(true);
-          internalFrame = LOOP_FRAMES[0];
-        }
-
-        if (currentX > endX) {
-          setOpacity(0);
-          clearInterval(interval);
-        }
+      frame++;
+      if (!startMove && frame > idleFrames.end) {
+        frame = idleFrames.loopStart;
       }
-      else {
-        const loopFrame = LOOP_FRAMES[loopIndex % LOOP_FRAMES.length];
-        ctx.drawImage(images[loopFrame], 0, 0);
-        loopIndex++;
 
+      if (frame >= frameCount) {
+        frame = moveFrames.loopStart;
+      }
+
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.drawImage(images[frame], 0, 0, canvasWidth, canvasHeight);
+
+      if (startMove && frame >= moveFrames.start) {
         currentX += moveSpeed;
-        container.style.transform = `translate(${currentX}px, ${yShift}%)`;
-        const newMask = letterPositions.current.map(
-          (pos) => pos < currentX
+        container.style.transform = `translate(${currentX}px , ${yShift}%)`;
+
+        // Update visible mask based on sprite position
+        const containerRect = container.getBoundingClientRect();
+        const spriteCenterX = containerRect.left + canvasWidth / 2;
+
+        setVisibleMask(
+          letterPositions.current.map((pos) => pos < spriteCenterX)
         );
-        setVisibleMask(newMask);
+      }
 
-
-        if (currentX > endX) {
-          setOpacity(0);
-          clearInterval(interval);
-        }
+      if (currentX > endX) {
+        setCanvasOpacity(0);
+        clearInterval(interval);
+        console.log("Animation complete");
       }
     }, FRAME_INTERVAL);
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, [images, inView]);
+    return () => clearInterval(interval);
+
+  }, [images, inView, startMove, canvasRef])
+
+
+  // 5. Scramble underlying text
+
+  const startIndex = 0;
+  const scrambleDuration = (index: number) => 5 + index;
+  const visiblefromRef = useRef<number[]>(Array(text.length).fill(-1));
+  // The iteration number at which letters became visible, used to track duration for which a letter has been scrambling; 
+  // Letters have higher of adopting the correct value the longer they have been scrambling, and finalise after a set duration. 
+  const finalizedRef = useRef<boolean[]>(Array(text.length).fill(false));
+  const [displayText, setDisplayText] = useState(text);
+  const iterationRef = useRef(0);
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el || !visibleMask[startIndex]) return; // Don't scramble for a bit
+
+    el.dataset.value = text;
+
+    const interval = setInterval(() => {
+      const iteration = iterationRef.current;
+
+      setDisplayText(
+        text.split("").map((char, index) => {
+          if (finalizedRef.current[index]) {
+            return char;
+          }
+
+          if (index <= startIndex || char === " ") {
+            finalizedRef.current[index] = true;
+            return char;
+          }
+
+          if (visibleMask[index] && visiblefromRef.current[index] === -1) {
+            visiblefromRef.current[index] = iteration;
+          }
+
+          const visibleFrom = visiblefromRef.current[index];
+          if (visibleFrom !== -1) {
+            const progress = iteration - visibleFrom;
+            const duration = scrambleDuration(index);
+
+            if (progress > duration) {
+              finalizedRef.current[index] = true;
+              return char;
+            } else {
+              const probability = progress / duration * 0.5;
+              return Math.random() < probability
+                ? char
+                : letters[Math.floor(Math.random() * letters.length)];
+            }
+          }
+
+          return letters[Math.floor(Math.random() * letters.length)];
+        }).join("")
+      );
+
+      iterationRef.current += 1;
+
+      // Stop if all letters are finalized
+      if (finalizedRef.current.every(f => f)) {
+        clearInterval(interval);
+      }
+    }, 35);
+
+    return () => clearInterval(interval);
+  }, [visibleMask, text, startIndex]);
 
   return (
-    <div>
-      <div ref={textWrapperRef}>
-        <ScrambleText
-          text={text}
-          visibleMask={visibleMask}
-          className={className + " flex items-center justify-center"}
-        />
-      </div>
+    <div className="relative w-full flex items-center justify-center">
+      {/* Scramble text */}
+      <h1
+        ref={textRef}
+        style={{ fontSize: `${fontSize}px` }}
+        className={`matrix-text font-mono tracking-wider z-10`}
+        data-value={text}
+      >
+        {displayText.split("").map((char, i) => (
+          <span
+            key={i}
+            style={{
+              opacity: visibleMask[i] ? 1 : 0,
+              transition: "opacity 0.1s linear",
+              whiteSpace: "pre",
+              display: "inline-block",
+            }}
+          >
+            {char}
+          </span>
+        ))}
+      </h1>
 
+      {/* Sprite container */}
       <div
         ref={containerRef}
         style={{
@@ -172,22 +285,22 @@ const RevealSprite = ({ text, className = "" }: Props) => {
           top: "50%",
           left: 0,
           transform: `translate(0, ${yShift}%)`,
-          width: `${CANVAS_WIDTH}px`,
-          height: `${CANVAS_HEIGHT}px`,
-          zIndex: 9999,
+          width: `${canvasWidth}px`,
+          height: `${canvasHeight}px`,
+          zIndex: 20,
           pointerEvents: "none",
           willChange: "transform",
-          contain: "layout style size",
-          opacity: opacity,
+          opacity: canvasOpacity,
+          transition: "opacity 0.3s ease-out",
         }}
       >
         <canvas
           ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
+          width={canvasWidth}
+          height={canvasHeight}
           style={{
-            width: "200px",
-            height: "300px",
+            width: `${canvasWidth}px`,
+            height: `${canvasHeight}px`,
             background: "transparent",
           }}
         />
@@ -196,4 +309,4 @@ const RevealSprite = ({ text, className = "" }: Props) => {
   );
 };
 
-export default RevealSprite;
+export default RevealOverlay
