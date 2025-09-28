@@ -128,7 +128,7 @@ const Home = () => {
                         </SlideIn>
                     </div>
                 </div>
-                <div className="order-2 md:order-1">
+                <div className="order-2 md:order-1 p-8">
                     <SlideIn>
                         <img
                             src="/uk-sunrise.jpg"

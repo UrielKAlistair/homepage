@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useEffect, useRef, useState } from "react";
 
 interface RevealConfig {
   text: string;
@@ -53,7 +53,7 @@ const RevealOverlay = (config: RevealConfig) => {
   const [canvasWidth, setCanvasWidth] = useState(200);
   const canvasHeight = canvasWidth * 1.5
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function updateLayout() {
       const MONOSPACE_ASPECT = 0.6;
       const screenWidth = window.innerWidth;
@@ -89,7 +89,7 @@ const RevealOverlay = (config: RevealConfig) => {
   const [startMove, setStartMove] = useState(false);
   useEffect(() => {
     const element = containerRef.current;
-    if (!element || !isReady) return;
+    if (!element || !isReady) return; // checking !element is a safeguard, isReady should prevent this.
 
     const animObserver = new IntersectionObserver(
       ([entry]) => {
@@ -119,7 +119,7 @@ const RevealOverlay = (config: RevealConfig) => {
       animObserver.disconnect();
       moveObserver.disconnect();
     }
-  }, [containerRef, isReady]);
+  }, [isReady, moveThreshold, startThreshold]);
 
   // 4. Knight Animation
 
@@ -133,7 +133,7 @@ const RevealOverlay = (config: RevealConfig) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const container = containerRef.current;
-    if (!canvas || !ctx || !container) return;
+    if (!canvas || !ctx || !container) return; // safeguard, won't occur because the element is literally inView
 
     const FRAME_INTERVAL = 1000 / fps;
     const screenW = window.innerWidth;
@@ -183,7 +183,7 @@ const RevealOverlay = (config: RevealConfig) => {
 
     return () => clearInterval(interval);
 
-  }, [images, inView, startMove, canvasRef])
+  }, [images, inView, startMove])
 
 
   // 5. Scramble underlying text
@@ -201,8 +201,6 @@ const RevealOverlay = (config: RevealConfig) => {
   useEffect(() => {
     const el = textRef.current;
     if (!el || !visibleMask[startIndex]) return; // Don't scramble for a bit
-
-    el.dataset.value = text;
 
     const interval = setInterval(() => {
       const iteration = iterationRef.current;
@@ -251,7 +249,7 @@ const RevealOverlay = (config: RevealConfig) => {
     }, 35);
 
     return () => clearInterval(interval);
-  }, [visibleMask, text, startIndex]);
+  }, [visibleMask]);
 
   return (
     <div className="relative w-full flex items-center justify-center">
@@ -260,7 +258,6 @@ const RevealOverlay = (config: RevealConfig) => {
         ref={textRef}
         style={{ fontSize: `${fontSize}px` }}
         className={`matrix-text font-mono tracking-wider z-10`}
-        data-value={text}
       >
         {displayText.split("").map((char, i) => (
           <span

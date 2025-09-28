@@ -3,7 +3,7 @@ import { svg, animate } from "animejs";
 
 function HeroText() {
     const containerRef = useRef<HTMLDivElement>(null);
-    const animationsRef = useRef<any[]>([]); // To store animation instances
+    const animationsRef = useRef<any[]>([]);
 
     useEffect(() => {
         let isMounted = true;
@@ -65,7 +65,7 @@ function HeroText() {
     return (
         <div
             ref={containerRef}
-            className="max-w-[70vw] aspect-[11/1] mx-auto"
+            className="w-[75vw] aspect-[11/1] mx-auto"
         />
     );
 }
