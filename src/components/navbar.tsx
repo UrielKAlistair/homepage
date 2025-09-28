@@ -1,36 +1,31 @@
-import { Github, Linkedin } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Github, Linkedin, Menu } from "lucide-react"
+import { useState } from "react"
 import { Link } from "react-router-dom"
-import ProjectsButton from "@/components/scrollink"
+
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetDescription,
+  SheetTitle
+} from "@/components/ui/sheet"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 export default function Navbar() {
+  const [open, setOpen] = useState(false)
+
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
       <h1 className="text-xl font-bold tracking-widest">UKA</h1>
 
-      <nav className="flex items-center gap-8 text-lg font-semibold">
-        <Link to="/" className="hover:text-gray-400">Home</Link>
-        <ProjectsButton />
-        <DropdownMenu>
-          <DropdownMenuTrigger className="hover:text-gray-400">
-            Tools
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-black text-white font-semibold">
-            <DropdownMenuItem asChild className="block text-center">
-              <Link to="/analyst-ai">Analyst AI</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="block text-center">
-              <Link to="/rag">RAG App</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {/* Desktop navbar */}
+      <nav className="hidden md:flex items-center gap-8 text-lg font-semibold">
+        <Link to="/" onClick={() => setOpen(false)}>Home</Link>
+        <Link to="/projects" onClick={() => setOpen(false)}>Projects</Link>
+        <Link to="/poetry" onClick={() => setOpen(false)}>Poetry</Link>
       </nav>
 
+      {/* Social + mobile toggle */}
       <nav className="flex items-center gap-4">
         <a
           href="https://github.com/UrielKAlistair"
@@ -48,6 +43,27 @@ export default function Navbar() {
         >
           <Linkedin className="h-5 w-5" />
         </a>
+
+        {/* Mobile menu */}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild className="md:hidden">
+            <button>
+              <Menu className="h-6 w-6" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="bg-black text-white p-6">
+            <VisuallyHidden>
+              <SheetTitle>Navigation Menu</SheetTitle>
+              <SheetDescription>Select a destination</SheetDescription>
+            </VisuallyHidden>
+
+            <nav className="flex flex-col gap-6 text-lg font-semibold">
+              <Link to="/" onClick={() => setOpen(false)}>Home</Link>
+              <Link to="/projects" onClick={() => setOpen(false)}>Projects</Link>
+              <Link to="/poetry" onClick={() => setOpen(false)}>Poetry</Link>
+            </nav>
+          </SheetContent>
+        </Sheet>
       </nav>
     </header>
   )

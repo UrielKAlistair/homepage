@@ -1,3 +1,4 @@
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Github, ExternalLink } from "lucide-react";
@@ -9,28 +10,31 @@ import HeroText from "@/components/calligraphy"
 const Home = () => {
     const projects = [
         {
-            title: "Project One",
-            description: "A full-stack web application built with React and Node.js",
-            technologies: ["React", "TypeScript", "Node.js", "PostgreSQL"],
-            github: "#",
+            title: "RAG ",
+            description: " A vectorized retrieval pipeline that augments an LLM to answer questions from large pdf sources efficiently.",
+            technologies: ["Frustrating LLMs", "Maniacal PDF parsing", "Arbitrary RAG knob tweaking", "Fighting Rate limits"],
+            github: "https://github.com/UrielKAlistair/Textbook_RAG",
             demo: "#",
+            newTab: true
         },
         {
-            title: "Project Two",
-            description: "Mobile-first e-commerce platform with modern design",
-            technologies: ["Next.js", "Tailwind CSS", "Stripe", "Vercel"],
+            title: "Agentic Analyst",
+            description: "Made an LLM bully itself so that I bring more LLM bullying to the world instead of doing it manually. \n This agent can analyse, summarise and give insights about any general dataset. \
+            Take verbal inputs, searches the web for datasets, provides results.",
+            technologies: ["Resilience", "Sadism", "Python"],
             github: "#",
             demo: "#",
+            newTab: true
         },
         {
-            title: "Project Three",
-            description: "AI-powered analytics dashboard with real-time data",
-            technologies: ["React", "Python", "FastAPI", "PostgreSQL"],
+            title: "Ebony",
+            description: "There is space for a third card here... maybe I will add something later.",
+            technologies: ["Procrastination"],
             github: "#",
             demo: "#",
+            newTab: false
         },
     ];
-
     return (
         <div className="min-h-screen bg-background overflow-hidden">
             <Navbar />
@@ -39,52 +43,61 @@ const Home = () => {
                 <HeroText />
             </section>
 
+            {/* Showcase Section */}
 
-            {/* Projects Section */}
-            <section id="projects" className="py-20 bg-muted/50 relative">
-                <div className="container mx-auto sm:px-6 lg:px-8">
-                    <div className="text-center mb-16 relative">
-                        <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                            Featured Projects
+            <section id="showcase" className="pt-20 pb-10 bg-muted/50 relative">
+                <div className="flex flex-col items-center text-center mb-10 space-y-2">
+                    <div className="flex flex-row gap-5 justify-center items-end relative px-10">
+                        <h2 className="text-2xl font-bold text-foreground">
+                            Showcase:
                         </h2>
 
-
-                        <p className="mt-4 text-lg text-muted-foreground">
-                            Here are some of my recent projects that showcase my skills and passion for development.
+                        <p className="text-lg text-muted-foreground">
+                            A Snippet of what I've been upto recently*.
                         </p>
                     </div>
-
-                    <div className="flex relative">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                </div>
+                <div className="container mx-auto sm:px-6 lg:px-8">
+                    <Carousel>
+                        <CarouselContent>
                             {projects.map((project, index) => (
-                                <Card key={index} className="hover:shadow-lg transition-shadow duration-300">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center justify-between">
-                                            {project.title}
-                                            <div className="flex space-x-2">
-                                                <a href={project.github} className="text-muted-foreground hover:text-foreground">
-                                                    <Github className="h-4 w-4" />
-                                                </a>
-                                                <a href={project.demo} className="text-muted-foreground hover:text-foreground">
-                                                    <ExternalLink className="h-4 w-4" />
-                                                </a>
+                                <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3 flex-shrink-0">
+                                    <Card key={index} className="hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between h-full">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center justify-between">
+                                                {project.title}
+                                                <div className="flex space-x-2">
+                                                    <a href={project.github} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                                                        <Github className="h-4 w-4" />
+                                                    </a>
+                                                    <a href={project.demo} className="text-muted-foreground hover:text-foreground">
+                                                        <ExternalLink className="h-4 w-4" />
+                                                    </a>
+                                                </div>
+                                            </CardTitle>
+                                            <CardDescription>{project.description}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="flex flex-wrap gap-2">
+                                                {project.technologies.map((tech, techIndex) => (
+                                                    <Badge key={techIndex} variant="secondary">
+                                                        {tech}
+                                                    </Badge>
+                                                ))}
                                             </div>
-                                        </CardTitle>
-                                        <CardDescription>{project.description}</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex flex-wrap gap-2">
-                                            {project.technologies.map((tech, techIndex) => (
-                                                <Badge key={techIndex} variant="secondary">
-                                                    {tech}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                        </CardContent>
+                                    </Card>
+                                </CarouselItem>
                             ))}
-                        </div>
-                    </div>
+
+                        </CarouselContent>
+                        <CarouselPrevious className="ml-4" />
+                        <CarouselNext className="mr-4" />
+                    </Carousel>
+
+                    <footer className="pt-6 pb-5 text-center text-xs text-muted-foreground">
+                        *recency subject to laziness in updating page.
+                    </footer>
                 </div>
             </section>
 
