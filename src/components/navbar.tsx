@@ -13,6 +13,11 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
+  const navLinks = [
+    { to: "/", label: "Home" },
+    { to: "/trail", label: "The Trail" },
+    { to: "/poetry", label: "Poetry" },
+  ]
 
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
@@ -20,9 +25,11 @@ export default function Navbar() {
 
       {/* Desktop navbar */}
       <nav className="hidden md:flex items-center gap-8 text-lg font-semibold">
-        <Link to="/" onClick={() => setOpen(false)}>Home</Link>
-        <Link to="/projects" onClick={() => setOpen(false)}>Projects</Link>
-        <Link to="/poetry" onClick={() => setOpen(false)}>Poetry</Link>
+        {navLinks.map((link) => (
+          <Link key={link.to} to={link.to} onClick={() => setOpen(false)}>
+            {link.label}
+          </Link>
+        ))}
       </nav>
 
       {/* Social + mobile toggle */}
@@ -47,7 +54,7 @@ export default function Navbar() {
         {/* Mobile menu */}
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild className="md:hidden">
-            <button>
+            <button aria-label="Open navigation menu">
               <Menu className="h-6 w-6" />
             </button>
           </SheetTrigger>
@@ -58,9 +65,11 @@ export default function Navbar() {
             </VisuallyHidden>
 
             <nav className="flex flex-col gap-6 text-lg font-semibold">
-              <Link to="/" onClick={() => setOpen(false)}>Home</Link>
-              <Link to="/projects" onClick={() => setOpen(false)}>Projects</Link>
-              <Link to="/poetry" onClick={() => setOpen(false)}>Poetry</Link>
+              {navLinks.map((link) => (
+                <Link key={link.to} to={link.to} onClick={() => setOpen(false)}>
+                  {link.label}
+                </Link>
+              ))}
             </nav>
           </SheetContent>
         </Sheet>

@@ -8,20 +8,21 @@ import RevealOverlay from "@/components/reveal";
 import HeroText from "@/components/calligraphy"
 
 const Home = () => {
+    const sectionMaxWidthClass = "max-w-[90rem]";
+
     const projects = [
         {
             title: "RAG ",
             description: " A vectorized retrieval pipeline that augments an LLM to answer questions from large pdf sources efficiently.",
-            technologies: ["Frustrating LLMs", "Maniacal PDF parsing", "Arbitrary RAG knob tweaking", "Fighting Rate limits"],
+            technologies: ["Frustrating LLMs", "Maniacal PDF parsing", "RAG knob tweaking", "Fighting Rate limits"],
             github: "https://github.com/UrielKAlistair/Textbook_RAG",
             demo: "#",
             newTab: true
         },
         {
-            title: "Agentic Analyst",
-            description: "Made an LLM bully itself so that I bring more LLM bullying to the world instead of doing it manually. \n This agent can analyse, summarise and give insights about any general dataset. \
-            Take verbal inputs, searches the web for datasets, provides results.",
-            technologies: ["Resilience", "Sadism", "Python"],
+            title: "The Trail",
+            description: "A compendium of knowledge gained so far, fairly concise ",
+            technologies: ["Curiosity"],
             github: "#",
             demo: "#",
             newTab: true
@@ -40,24 +41,24 @@ const Home = () => {
             <Navbar />
             {/* Hero Section */}
             <section className="relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
-                <HeroText />
+                <HeroText className={sectionMaxWidthClass} />
             </section>
 
             {/* Showcase Section */}
 
             <section id="showcase" className="pt-20 pb-10 bg-muted/50 relative">
-                <div className="flex flex-col items-center text-center mb-10 space-y-2">
-                    <div className="flex flex-row gap-5 justify-center items-end relative px-10">
-                        <h2 className="text-2xl font-bold text-foreground">
-                            Showcase:
-                        </h2>
+                <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
+                    <div className="flex flex-col items-center text-center mb-10 space-y-2">
+                        <div className="flex flex-row gap-5 justify-center items-end relative px-10">
+                            <h2 className="text-2xl font-bold text-foreground">
+                                Showcase:
+                            </h2>
 
-                        <p className="text-lg text-muted-foreground">
-                            A Snippet of what I've been upto recently*.
-                        </p>
+                            <p className="text-lg text-muted-foreground">
+                                A Snippet of what I've been upto recently*.
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <div className="container mx-auto sm:px-6 lg:px-8">
                     <Carousel>
                         <CarouselContent>
                             {projects.map((project, index) => (
@@ -102,53 +103,57 @@ const Home = () => {
             </section>
 
             {/* About Section */}
-            <section className="flex flex-col md:grid md:grid-cols-2 items-center py-20 bg-muted/30">
+            <section className="py-20 bg-muted/30">
+                <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
+                    <div className="flex flex-col md:grid md:grid-cols-2 items-center">
 
-                <div className="flex flex-col gap-6 order-1 md:order-2 pb-10">
-                    <SlideIn>
-                        <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-center">
-                            About Me
-                        </h2>
-                    </SlideIn>
-                    <div className="prose prose-lg max-w-none text-muted-foreground px-5 space-y-2">
+                        <div className="flex flex-col gap-6 order-1 md:order-2 pb-10">
+                            <SlideIn>
+                                <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-center">
+                                    About Me
+                                </h2>
+                            </SlideIn>
+                            <div className="prose prose-lg max-w-none text-muted-foreground px-5 space-y-2">
 
-                        <SlideIn>
-                            <p className="leading-relaxed">
-                                I'm a curious builder drawn to elegance. (and coffee.)
-                            </p>
-                        </SlideIn>
+                                <SlideIn>
+                                    <p className="leading-relaxed">
+                                        I'm a curious builder drawn to elegance. (and coffee.)
+                                    </p>
+                                </SlideIn>
 
-                        <SlideIn>
-                            <p className="leading-relaxed">
-                                Lazy, Impatient, Vainglorious: I've maxed out the Programmer primary stats.
-                            </p>
-                        </SlideIn>
+                                <SlideIn>
+                                    <p className="leading-relaxed">
+                                        Lazy, Impatient, Vainglorious: I've maxed out the Programmer primary stats.
+                                    </p>
+                                </SlideIn>
 
-                        <SlideIn duration={650}>
-                            <p className="leading-relaxed">
-                                I'm wired for understanding and creation — breaking ideas down and building them back up,
-                                be it code, math, or physics. That instinct's led me to IITM, a great many beautiful
-                                problems and fascinating people to work on them with. I love to create things, be it a
-                                clean UI, or a clever piece of unseen code. They are to me, a game, a puzzle, and an
-                                art; they are to me, beauty itself.
-                            </p>
-                        </SlideIn>
+                                <SlideIn duration={650}>
+                                    <p className="leading-relaxed">
+                                        I'm wired for understanding and creation — breaking ideas down and building them back up,
+                                        be it code, math, or physics. That instinct's led me to IITM, a great many beautiful
+                                        problems and fascinating people to work on them with. I love to create things, be it a
+                                        clean UI, or a clever piece of unseen code. They are to me, a game, a puzzle, and an
+                                        art; they are to me, beauty itself.
+                                    </p>
+                                </SlideIn>
 
-                        <SlideIn>
-                            <p className="leading-relaxed">
-                                When not writing code, I will be found writing poetry, speedrunning celeste or farming emblem of severed fate.
-                            </p>
-                        </SlideIn>
+                                <SlideIn>
+                                    <p className="leading-relaxed">
+                                        When not writing code, I will be found writing poetry, speedrunning celeste or farming emblem of severed fate.
+                                    </p>
+                                </SlideIn>
+                            </div>
+                        </div>
+                        <div className="order-2 md:order-1 p-8">
+                            <SlideIn>
+                                <img
+                                    src="/uk-sunrise.jpg"
+                                    alt="UK staring into the sunrise at coorg"
+                                    className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
+                                />
+                            </SlideIn>
+                        </div>
                     </div>
-                </div>
-                <div className="order-2 md:order-1 p-8">
-                    <SlideIn>
-                        <img
-                            src="/uk-sunrise.jpg"
-                            alt="UK staring into the sunrise at coorg"
-                            className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
-                        />
-                    </SlideIn>
                 </div>
             </section>
 

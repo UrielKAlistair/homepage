@@ -1,7 +1,7 @@
 import Navbar from "@/components/navbar";
 
-const Analyst = () => {
+const Trail = () => {
     return (<Navbar />)
 }
 
-export default Analyst
+export default Trail

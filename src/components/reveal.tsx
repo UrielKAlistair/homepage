@@ -183,7 +183,7 @@ const RevealOverlay = (config: RevealConfig) => {
 
     return () => clearInterval(interval);
 
-  }, [images, inView, startMove])
+  }, [images, inView, startMove, canvasWidth, canvasHeight, moveDurationMs, yShift])
 
 
   // 5. Scramble underlying text
@@ -249,7 +249,7 @@ const RevealOverlay = (config: RevealConfig) => {
     }, 35);
 
     return () => clearInterval(interval);
-  }, [visibleMask]);
+  }, [visibleMask, text]);
 
   return (
     <div className="relative w-full flex items-center justify-center">

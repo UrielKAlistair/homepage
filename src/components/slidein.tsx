@@ -36,7 +36,7 @@ const SlideIn = ({
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [threshold]);
+  }, [delay, hasAnimated, threshold]);
 
   return (
     <div ref={wrapperRef} className="relative overflow-hidden">

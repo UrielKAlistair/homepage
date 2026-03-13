@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef} from 'react';
 import { svg, animate } from "animejs";
 
-function HeroText() {
+type HeroTextProps = {
+    className?: string;
+};
+
+function HeroText({ className = "" }: HeroTextProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const animationsRef = useRef<any[]>([]);
 
     useEffect(() => {
         let isMounted = true;
@@ -36,7 +39,7 @@ function HeroText() {
                 });
 
                 // Animate each path
-                const animations = paths.map((path, index) => {
+                paths.map((path, index) => {
                     const drawable = svg.createDrawable(path);
                     return animate(drawable, {
                         draw: ["0 0", "0 1"],
@@ -52,9 +55,6 @@ function HeroText() {
                         }
                     });
                 });
-
-
-                animationsRef.current = animations;
             });
 
         return () => {
@@ -65,7 +65,7 @@ function HeroText() {
     return (
         <div
             ref={containerRef}
-            className="w-[75vw] aspect-[11/1] mx-auto"
+            className={`w-[75vw] aspect-[11/1] mx-auto ${className}`}
         />
     );
 }
