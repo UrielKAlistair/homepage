@@ -21,11 +21,12 @@ const SlideIn = ({
   useEffect(() => {
     const target = wrapperRef.current;
     if (!target || hasAnimated) return;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             setHasAnimated(true);
           }, delay);
           observer.disconnect();
@@ -35,7 +36,12 @@ const SlideIn = ({
     );
 
     observer.observe(target);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [delay, hasAnimated, threshold]);
 
   return (

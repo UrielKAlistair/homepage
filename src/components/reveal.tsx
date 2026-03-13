@@ -169,9 +169,12 @@ const RevealOverlay = (config: RevealConfig) => {
         const containerRect = container.getBoundingClientRect();
         const spriteCenterX = containerRect.left + canvasWidth / 2;
 
-        setVisibleMask(
-          letterPositions.current.map((pos) => pos < spriteCenterX)
-        );
+        setVisibleMask((prevMask) => {
+          const nextMask = letterPositions.current.map((pos) => pos < spriteCenterX);
+          const hasSameLength = prevMask.length === nextMask.length;
+          const isSameMask = hasSameLength && prevMask.every((value, index) => value === nextMask[index]);
+          return isSameMask ? prevMask : nextMask;
+        });
       }
 
       if (currentX > endX) {
