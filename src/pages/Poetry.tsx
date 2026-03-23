@@ -96,13 +96,28 @@ const Poetry = () => {
       return
     }
 
-    setDisplayedPoem(flyingCard.poem)
-    requestAnimationFrame(()=>{setContentVisible(true)})
+    const landedPoem = flyingCard.poem
+    const revealPoem = () => {
+      setDisplayedPoem(landedPoem)
+      setContentVisible(true)
     
-    window.setTimeout(() => {
-      setAnimating(false)
-      setFlyingCard(null)
-    }, 200)
+      window.setTimeout(() => {
+        setAnimating(false)
+        setFlyingCard(null)
+      }, 200)
+    }
+
+
+    const poemImage = new Image()
+    poemImage.src = landedPoem.poemImage
+
+    if (poemImage.complete) {
+      revealPoem()
+      return
+    }
+
+    poemImage.onload = revealPoem
+    poemImage.onerror = revealPoem
   }
 
   return (
