@@ -97,7 +97,7 @@ const Poetry = () => {
     }
 
     setDisplayedPoem(flyingCard.poem)
-    setContentVisible(true)
+    requestAnimationFrame(()=>{setContentVisible(true)})
     
     window.setTimeout(() => {
       setAnimating(false)
