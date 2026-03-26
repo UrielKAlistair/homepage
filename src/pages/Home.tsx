@@ -12,28 +12,29 @@ const Home = () => {
 
     const projects = [
         {
-            title: "RAG ",
-            description: " A vectorized retrieval pipeline that augments an LLM to answer questions from large pdf sources efficiently.",
-            technologies: ["Frustrating LLMs", "Maniacal PDF parsing", "RAG knob tweaking", "Fighting Rate limits"],
-            github: "https://github.com/UrielKAlistair/Textbook_RAG",
-            demo: "#",
-            newTab: true
-        },
-        {
             title: "The Trail",
-            description: "A compendium of knowledge gained so far, fairly concise ",
-            technologies: ["Curiosity"],
-            github: "#",
-            demo: "#",
-            newTab: true
+            description: "A compendium of knowledge.",
+            lastUpdate: "25/3/26",
+            technologies: ["Wanderlust"],
+            demo: "/trail",
+            newTab: false
         },
         {
-            title: "Ebony",
-            description: "There is space for a third card here... maybe I will add something later.",
-            technologies: ["Procrastination"],
-            github: "#",
-            demo: "#",
+            title: "Poetry",
+            description: "Musings.",
+            lastUpdate: "28/9/25",
+            technologies: ["Rumination"],
+            demo: "/poetry",
             newTab: false
+        },
+        {
+            title: "RAG ",
+            description: "A learning exercise in making a vectorized retrieval pipeline. Augments an LLM to answer questions from large pdf sources efficiently.",
+            technologies: ["Frustrating LLMs", "Fighting Rate limits"],
+            github: "https://github.com/UrielKAlistair/Textbook_RAG",
+            lastUpdate: "22/8/25",
+            demo: "#",
+            newTab: true
         },
     ];
     return (
@@ -50,12 +51,9 @@ const Home = () => {
                 <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
                     <div className="flex flex-col items-center text-center mb-10 space-y-2">
                         <div className="flex flex-row gap-5 justify-center items-end relative px-10">
-                            <h2 className="text-2xl font-bold text-foreground">
-                                Showcase:
-                            </h2>
-
-                            <p className="text-lg text-muted-foreground">
-                                A Snippet of what I've been upto recently*.
+                            <p className="text-2xl font-semibold text-foreground">
+                                A Snippet of what I've been upto recently
+                            <span className="ml-1 align-super text-muted-foreground">*</span> :
                             </p>
                         </div>
                     </div>
@@ -68,15 +66,21 @@ const Home = () => {
                                             <CardTitle className="flex items-center justify-between">
                                                 {project.title}
                                                 <div className="flex space-x-2">
+                                                    {project.github &&(
                                                     <a href={project.github} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
                                                         <Github className="h-4 w-4" />
                                                     </a>
-                                                    <a href={project.demo} className="text-muted-foreground hover:text-foreground">
+                                                    )}
+                                                    {
+                                                    project.demo && (<a href={project.demo} className="text-muted-foreground hover:text-foreground">
                                                         <ExternalLink className="h-4 w-4" />
-                                                    </a>
+                                                    </a>)}
                                                 </div>
                                             </CardTitle>
-                                            <CardDescription>{project.description}</CardDescription>
+                                            <CardDescription>
+                                                {project.description} <br/><br/> 
+                                                Last Update: {project.lastUpdate}
+                                            </CardDescription>
                                         </CardHeader>
                                         <CardContent>
                                             <div className="flex flex-wrap gap-2">
@@ -117,7 +121,7 @@ const Home = () => {
 
                                 <SlideIn>
                                     <p className="leading-relaxed">
-                                        I'm a curious builder drawn to elegance. (and coffee.)
+                                        I'm a curious builder driven by discovery. (and coffee.)
                                     </p>
                                 </SlideIn>
 
@@ -139,7 +143,7 @@ const Home = () => {
 
                                 <SlideIn>
                                     <p className="leading-relaxed">
-                                        When not writing code, I will be found writing poetry, speedrunning celeste or farming emblem of severed fate.
+                                        When not writing code, I will be found writing poetry, speedrunning celeste or catching up on anime.
                                     </p>
                                 </SlideIn>
                             </div>
