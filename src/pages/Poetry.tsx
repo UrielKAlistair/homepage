@@ -7,23 +7,23 @@ const Poetry = () => {
   const poems = [
     {
       title: "Rain",
-      cardImage: "/poetry/rain-card.png",
-      poemImage: "/poetry/rain.png",
+      cardImage: "/poetry/rain-card.webp",
+      poemImage: "/poetry/rain.webp",
     },
     {
       title: "Rebel",
-      cardImage: "/poetry/rebel-card.png",
-      poemImage: "/poetry/rebel.png",
+      cardImage: "/poetry/rebel-card.webp",
+      poemImage: "/poetry/rebel.webp",
     },
     {
       title: "Winter",
-      cardImage: "/poetry/winter-card.png",
-      poemImage: "/poetry/winter.png",
+      cardImage: "/poetry/winter-card.webp",
+      poemImage: "/poetry/winter.webp",
     },
     {
       title: "Ebony",
-      cardImage: "/poetry/ebony-card.png",
-      poemImage: "/poetry/ebony.png",
+      cardImage: "/poetry/ebony-card.webp",
+      poemImage: "/poetry/ebony.webp",
     },
     
   ]
@@ -127,11 +127,11 @@ const Poetry = () => {
       <div className="grid gap-6 p-3 md:h-[calc(100vh-72px)] md:grid-cols-[minmax(0,1fr)_clamp(8rem,16vw,12rem)]">
 
         {/* This section holds the poem slot and the card slot */}
-        <section className="min-w-0 rounded-3xl border border-border bg-muted p-4 md:h-full md:min-h-0">
+        <section className="min-w-0 rounded-3xl border border-border bg-muted/70 p-4 md:h-full md:min-h-0">
           <div className="flex h-full min-h-[50vh] min-w-0 flex-col gap-4 md:min-h-0 md:grid md:grid-cols-[minmax(0,1fr)_clamp(7rem,10vw,9rem)]">
             
             {/* Poem slot */}
-            <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background/40 p-4">
+            <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background/25 p-4">
               {/* Background */}
               <div className="absolute inset-4 flex items-center justify-center select-none text-5xl text-foreground/15">
                 ❖
@@ -178,7 +178,7 @@ const Poetry = () => {
                       setContentVisible(true)
                     }, 300)
                   }}
-                  className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-background/60">
+                  className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-background/40">
 
                   <div className="absolute inset-0 h-full w-full flex items-center justify-center text-3xl text-foreground/15">
                       ✦
@@ -202,25 +202,37 @@ const Poetry = () => {
         </section>
         
         {/* This section holds the scrollable cards for the poems */}
-        <section className="min-w-0 rounded-3xl border border-border bg-secondary p-4 md:h-full min-h-0">
-          <div className="flex gap-4 overflow-x-auto md:h-full md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            {poems.map((poem) => (
-              <button
-                key={poem.title}
-                ref={(node) => {
-                  cardRefs.current[poem.title] = node
-                }}
-                type="button"
-                onClick={() => startCardAnimation(poem)}
-                className={`w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-colors hover:border-foreground md:w-full ${displayedPoem?.title === poem.title ? "border-foreground" : "border-border"}`}
-              >
-                <img
-                  src={poem.cardImage}
-                  alt={`${poem.title} card`}
-                  className="aspect-[5/7] w-full object-contain"
-                />
-              </button>
-            ))}
+        <section className="min-w-0 rounded-3xl border border-border bg-muted/70 md:h-full min-h-0">
+          <div className="flex overflow-x-auto md:h-full md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+            {poems.map((poem) => {
+              const isDisplayed = displayedPoem?.title === poem.title
+
+              return (
+                <div
+                  key={poem.title}
+                  className="shrink-0 px-3 py-3 first:pl-4 last:pr-4 md:w-full md:first:pt-4 md:last:pb-4"
+                >
+                  <button
+                    ref={(node) => {
+                      cardRefs.current[poem.title] = node
+                    }}
+                    type="button"
+                    onClick={() => startCardAnimation(poem)}
+                    disabled={isDisplayed}
+                    className={`group relative w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${isDisplayed ? "cursor-default border-border opacity-45" : "cursor-pointer border-border hover:-translate-y-1 hover:rotate-[-2.5deg] hover:scale-[1.02] hover:border-foreground hover:shadow-[0_0_45px_rgba(0,0,0,0.28)]"}`}
+                  >
+                    <img
+                      src={poem.cardImage}
+                      alt={`${poem.title} card`}
+                      className={`aspect-[5/7] w-full object-contain ${isDisplayed ? "" : "transition-transform duration-200 group-hover:scale-[1.04]"}`}
+                    />
+                    {!isDisplayed && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-3 pb-3 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100"/>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </section>
       </div>
