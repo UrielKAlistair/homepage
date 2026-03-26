@@ -1,7 +1,9 @@
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Autoplay from "embla-carousel-autoplay";
 import { Github, ExternalLink } from "lucide-react";
+import { useRef } from "react";
 import Navbar from "@/components/navbar";
 import SlideIn from "@/components/slidein";
 import RevealOverlay from "@/components/reveal";
@@ -9,16 +11,14 @@ import HeroText from "@/components/calligraphy"
 
 const Home = () => {
     const sectionMaxWidthClass = "max-w-[90rem]";
+    const autoplay = useRef(
+        Autoplay({
+            delay: 3500,
+            stopOnInteraction: true,
+        }),
+    );
 
     const projects = [
-        {
-            title: "The Trail",
-            description: "A compendium of knowledge.",
-            lastUpdate: "25/3/26",
-            technologies: ["Wanderlust"],
-            demo: "/trail",
-            newTab: false
-        },
         {
             title: "Poetry",
             description: "Musings.",
@@ -33,21 +33,33 @@ const Home = () => {
             technologies: ["Frustrating LLMs", "Fighting Rate limits"],
             github: "https://github.com/UrielKAlistair/Textbook_RAG",
             lastUpdate: "22/8/25",
-            demo: "#",
             newTab: true
+        },
+        {           
+            title: "Hmm...",
+            description: "Looks like I have more space here. Perhaps I'll add something later.",
+            technologies: ["Procrastination"]
+        },
+        {
+            title: "The Trail",
+            description: "A compendium of knowledge.",
+            lastUpdate: "25/3/26",
+            technologies: ["Wanderlust"],
+            demo: "/trail",
+            newTab: false
         },
     ];
     return (
         <div className="min-h-screen bg-background overflow-hidden">
             <Navbar />
             {/* Hero Section */}
-            <section className="relative flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 py-20 sm:py-32">
+            <section className="relative flex items-center justify-center bg-secondary/10 py-10">
                 <HeroText className={sectionMaxWidthClass} />
             </section>
 
             {/* Showcase Section */}
 
-            <section id="showcase" className="pt-20 pb-10 bg-muted/50 relative">
+            <section id="showcase" className="pt-10 pb-5 bg-muted/50 relative">
                 <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
                     <div className="flex flex-col items-center text-center mb-10 space-y-2">
                         <div className="flex flex-row gap-5 justify-center items-end relative px-10">
@@ -57,12 +69,17 @@ const Home = () => {
                             </p>
                         </div>
                     </div>
-                    <Carousel>
+                    <Carousel
+                        opts={{ loop: true }}
+                        plugins={[autoplay.current]}
+                        onMouseEnter={autoplay.current.stop}
+                        onMouseLeave={autoplay.current.reset}
+                    >
                         <CarouselContent>
                             {projects.map((project, index) => (
                                 <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3 flex-shrink-0">
                                     <Card key={index} className="hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between h-full">
-                                        <CardHeader>
+                                        <CardHeader className="space-y-2 p-5">
                                             <CardTitle className="flex items-center justify-between">
                                                 {project.title}
                                                 <div className="flex space-x-2">
@@ -78,11 +95,11 @@ const Home = () => {
                                                 </div>
                                             </CardTitle>
                                             <CardDescription>
-                                                {project.description} <br/><br/> 
+                                                {project.description} <br/>
                                                 Last Update: {project.lastUpdate}
                                             </CardDescription>
                                         </CardHeader>
-                                        <CardContent>
+                                        <CardContent className="px-5 pb-5 pt-0">
                                             <div className="flex flex-wrap gap-2">
                                                 {project.technologies.map((tech, techIndex) => (
                                                     <Badge key={techIndex} variant="secondary">
@@ -100,14 +117,14 @@ const Home = () => {
                         <CarouselNext className="mr-4" />
                     </Carousel>
 
-                    <footer className="pt-6 pb-5 text-center text-xs text-muted-foreground">
+                    <footer className="pt-3 pb-2 text-center text-xs text-muted-foreground">
                         *recency subject to laziness in updating page.
                     </footer>
                 </div>
             </section>
 
             {/* About Section */}
-            <section className="py-20 bg-muted/30">
+            <section className="pt-5 pb-3 bg-muted/30">
                 <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
                     <div className="flex flex-col md:grid md:grid-cols-2 items-center">
 
@@ -149,7 +166,7 @@ const Home = () => {
                             </div>
                         </div>
                         <div className="order-2 md:order-1 p-8">
-                            <SlideIn>
+                            <SlideIn threshold={0.1}>
                                 <img
                                     src="/uk-sunrise.jpg"
                                     alt="UK staring into the sunrise at coorg"
