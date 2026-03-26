@@ -53,13 +53,13 @@ const Home = () => {
         <div className="min-h-screen bg-background overflow-hidden">
             <Navbar />
             {/* Hero Section */}
-            <section className="relative flex items-center justify-center bg-secondary/10 py-10">
+            <section className="relative flex items-center justify-center bg-secondary/[0.30] py-10">
                 <HeroText className={sectionMaxWidthClass} />
             </section>
 
             {/* Showcase Section */}
 
-            <section id="showcase" className="pt-10 pb-5 bg-muted/50 relative">
+            <section id="showcase" className="pt-10 pb-5 bg-muted/65 relative">
                 <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
                     <div className="flex flex-col items-center text-center mb-10 space-y-2">
                         <div className="flex flex-row gap-5 justify-center items-end relative px-10">
@@ -102,7 +102,7 @@ const Home = () => {
                                         <CardContent className="px-5 pb-5 pt-0">
                                             <div className="flex flex-wrap gap-2">
                                                 {project.technologies.map((tech, techIndex) => (
-                                                    <Badge key={techIndex} variant="secondary">
+                                                    <Badge key={techIndex} variant="outline">
                                                         {tech}
                                                     </Badge>
                                                 ))}
@@ -124,7 +124,7 @@ const Home = () => {
             </section>
 
             {/* About Section */}
-            <section className="pt-5 pb-3 bg-muted/30">
+            <section className="pt-5 pb-3 bg-secondary/[0.38]">
                 <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
                     <div className="flex flex-col md:grid md:grid-cols-2 items-center">
 
@@ -180,7 +180,7 @@ const Home = () => {
 
 
 
-            <section className="py-5 bg-background relative">
+            <section className="py-2.5 bg-background relative">
                 <RevealOverlay text="echo $SLEEP > /dev/null" />
             </section>
         </div>

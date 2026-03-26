@@ -23,10 +23,11 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="fixed top-0 z-50 flex w-full items-center justify-between bg-black px-6 py-4 text-white">
+      <header className="fixed top-0 z-50 flex w-full items-center justify-between bg-background px-6 py-4 text-white">
         <h1 className="text-xl font-bold tracking-widest">
           <Link
             to="/"
+            className="transition-colors duration-200 hover:text-gray-300"
             onClick={() => {
               if (location.pathname === "/") {
                 scrollToTop()
@@ -43,6 +44,7 @@ export default function Navbar() {
             <Link
               key={link.to}
               to={link.to}
+              className="transition-colors duration-200 hover:text-gray-300"
               onClick={() => {
                 setOpen(false)
                 if (link.to === location.pathname) {
@@ -61,7 +63,7 @@ export default function Navbar() {
             href="https://github.com/UrielKAlistair"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-gray-400"
+            className="transition-colors duration-200 hover:text-gray-400"
           >
             <Github className="h-5 w-5" />
           </a>
@@ -69,7 +71,7 @@ export default function Navbar() {
             href="https://linkedin.com/in/UrielKAlistair"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-gray-400"
+            className="transition-colors duration-200 hover:text-gray-400"
           >
             <Linkedin className="h-5 w-5" />
           </a>
