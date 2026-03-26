@@ -8,21 +8,25 @@ const Poetry = () => {
     {
       title: "Rain",
       cardImage: "/poetry/rain-card.webp",
+      cardPlaceholder: "/poetry/rain-card-tiny.webp",
       poemImage: "/poetry/rain.webp",
     },
     {
       title: "Rebel",
       cardImage: "/poetry/rebel-card.webp",
+      cardPlaceholder: "/poetry/rebel-card-tiny.webp",
       poemImage: "/poetry/rebel.webp",
     },
     {
       title: "Winter",
       cardImage: "/poetry/winter-card.webp",
+      cardPlaceholder: "/poetry/winter-card-tiny.webp",
       poemImage: "/poetry/winter.webp",
     },
     {
       title: "Ebony",
       cardImage: "/poetry/ebony-card.webp",
+      cardPlaceholder: "/poetry/ebony-card-tiny.webp",
       poemImage: "/poetry/ebony.webp",
     },
     
@@ -30,6 +34,7 @@ const Poetry = () => {
 
   const [displayedPoem, setDisplayedPoem] = useState<(typeof poems)[number] | null>(null)
   const [animating, setAnimating] = useState(false)
+  const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>({})
   const [contentVisible, setContentVisible] = useState(true)
   const [flyingCard, setFlyingCard] = useState<{
     poem: (typeof poems)[number]
@@ -204,8 +209,9 @@ const Poetry = () => {
         {/* This section holds the scrollable cards for the poems */}
         <section className="min-w-0 rounded-3xl border border-border bg-muted/70 md:h-full min-h-0">
           <div className="flex overflow-x-auto md:h-full md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            {poems.map((poem) => {
+            {poems.map((poem, index) => {
               const isDisplayed = displayedPoem?.title === poem.title
+              const cardLoaded = loadedCards[poem.title]
 
               return (
                 <div
@@ -222,9 +228,21 @@ const Poetry = () => {
                     className={`group relative w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${isDisplayed ? "cursor-default border-border opacity-45" : "cursor-pointer border-border hover:-translate-y-1 hover:rotate-[-2.5deg] hover:scale-[1.02] hover:border-foreground hover:shadow-[0_0_45px_rgba(0,0,0,0.28)]"}`}
                   >
                     <img
+                      src={poem.cardPlaceholder}
+                      alt=""
+                      aria-hidden="true"
+                      className={`absolute inset-0 aspect-[5/7] h-full w-full scale-110 object-contain blur-xl transition-opacity duration-300 ${cardLoaded ? "opacity-0" : "opacity-100"}`}
+                    />
+                    <img
                       src={poem.cardImage}
                       alt={`${poem.title} card`}
-                      className={`aspect-[5/7] w-full object-contain ${isDisplayed ? "" : "transition-transform duration-200 group-hover:scale-[1.04]"}`}
+                      decoding="async"
+                      onLoad={() => {
+                        setLoadedCards((current) =>
+                          current[poem.title] ? current : { ...current, [poem.title]: true }
+                        )
+                      }}
+                      className={`relative z-10 aspect-[5/7] w-full object-contain transition-[opacity,transform] duration-300 ${cardLoaded ? "opacity-100" : "opacity-0"} ${isDisplayed ? "" : "group-hover:scale-[1.04]"}`}
                     />
                     {!isDisplayed && (
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-3 pb-3 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100"/>
