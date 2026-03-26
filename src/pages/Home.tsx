@@ -13,7 +13,7 @@ const Home = () => {
     const sectionMaxWidthClass = "max-w-[90rem]";
     const autoplay = useRef(
         Autoplay({
-            delay: 3500,
+            delay: 3400,
             stopOnInteraction: true,
         }),
     );
@@ -73,7 +73,7 @@ const Home = () => {
                         opts={{ loop: true }}
                         plugins={[autoplay.current]}
                         onMouseEnter={autoplay.current.stop}
-                        onMouseLeave={autoplay.current.reset}
+                        onMouseLeave={() => autoplay.current.play()}
                     >
                         <CarouselContent>
                             {projects.map((project, index) => (
