@@ -35,6 +35,7 @@ const Poetry = () => {
   const [displayedPoem, setDisplayedPoem] = useState<(typeof poems)[number] | null>(null)
   const [animating, setAnimating] = useState(false)
   const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>({})
+  const [poemLoading, setPoemLoading] = useState(false)
   const [contentVisible, setContentVisible] = useState(true)
   const [flyingCard, setFlyingCard] = useState<{
     poem: (typeof poems)[number]
@@ -46,15 +47,37 @@ const Poetry = () => {
   const slotRef = useRef<HTMLButtonElement | null>(null)
   const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
+  const loadPoem = (poem: (typeof poems)[number], onReady: () => void) => {
+    setPoemLoading(true)
+
+    const poemImage = new Image()
+    poemImage.src = poem.poemImage
+
+    const revealPoem = () => {
+      setPoemLoading(false)
+      onReady()
+    }
+
+    if (poemImage.complete) {
+      revealPoem()
+      return
+    }
+
+    poemImage.onload = revealPoem
+    poemImage.onerror = revealPoem
+  }
+
   const startCardAnimation = (poem: (typeof poems)[number]) => {
     if (animating) {
       return
     }
 
     if (window.innerWidth < 768) {
-      setDisplayedPoem(poem)
-      setAnimating(false)
-      setContentVisible(true)
+      loadPoem(poem, () => {
+        setDisplayedPoem(poem)
+        setAnimating(false)
+        setContentVisible(true)
+      })
       return
     }
 
@@ -112,17 +135,7 @@ const Poetry = () => {
       }, 200)
     }
 
-
-    const poemImage = new Image()
-    poemImage.src = landedPoem.poemImage
-
-    if (poemImage.complete) {
-      revealPoem()
-      return
-    }
-
-    poemImage.onload = revealPoem
-    poemImage.onerror = revealPoem
+    loadPoem(landedPoem, revealPoem)
   }
 
   return (
@@ -138,7 +151,9 @@ const Poetry = () => {
             {/* Poem slot */}
             <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background/25 p-4">
               {/* Background */}
-              <div className="absolute inset-4 flex items-center justify-center select-none text-5xl text-foreground/15">
+              <div
+                className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80 [animation:poem-rune-loading_1.7s_ease-in-out_infinite]" : "text-foreground/15"}`}
+              >
                 ❖
               </div>
 
@@ -171,12 +186,13 @@ const Poetry = () => {
                     </div>
                 </div>
 
-                {/* Clickable card Image */}
+                {/* Clickable card Image on the slot */}
                 <button
                   ref={slotRef}
                   type="button"
                   onClick={() => {
                     setContentVisible(false)
+                    setPoemLoading(false)
 
                     window.setTimeout(() => {
                       setDisplayedPoem(null)
