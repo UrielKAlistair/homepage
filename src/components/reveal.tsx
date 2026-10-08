@@ -3,7 +3,7 @@ import { useLayoutEffect, useEffect, useRef, useState } from "react";
 interface RevealConfig {
   text: string;
   startThreshold?: number;
-  moveThreshold?: number;
+  idleDelayMs?: number;
   moveDurationMs?: number;
 }
 
@@ -16,12 +16,12 @@ const RevealOverlay = (config: RevealConfig) => {
   const {
     text,
     startThreshold = 0.1,
-    moveThreshold = 0.3,
+    idleDelayMs = 5000,
     moveDurationMs = 3000,
   } = config;
 
   const frameCount = 46
-  const framePath = (index: number) => `/hollow-knight/frame${String(index).padStart(4, "0")}.png`
+  const framePath = (index: number) => `/hollow-knight/frame${String(index).padStart(4, "0")}.webp`
 
   // 1. Load Images (for animation)
   const [images, setImages] = useState<HTMLImageElement[]>([]);
@@ -84,9 +84,10 @@ const RevealOverlay = (config: RevealConfig) => {
     return () => window.removeEventListener("resize", updateLayout);
   }, [text]);
 
-  // 3. Start animation when user sees it
+  // 3. Start animation when user sees it; the knight idles until the delay runs out or he's clicked
   const [inView, setInView] = useState(false);
   const [startMove, setStartMove] = useState(false);
+  const isIdling = inView && images.length === frameCount && !startMove;
   useEffect(() => {
     const element = containerRef.current;
     if (!element || !isReady) return; // checking !element is a safeguard, isReady should prevent this.
@@ -102,24 +103,15 @@ const RevealOverlay = (config: RevealConfig) => {
       { threshold: startThreshold }
     );
 
-    const moveObserver = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          console.log("Movement triggered");
-          setStartMove(true);
-          moveObserver.disconnect();
-        }
-      },
-      { threshold: moveThreshold }
-    );
-
     animObserver.observe(element);
-    moveObserver.observe(element);
-    return () => {
-      animObserver.disconnect();
-      moveObserver.disconnect();
-    }
-  }, [isReady, moveThreshold, startThreshold]);
+    return () => animObserver.disconnect();
+  }, [isReady, startThreshold]);
+
+  useEffect(() => {
+    if (!isIdling) return;
+    const timeoutId = setTimeout(() => setStartMove(true), idleDelayMs);
+    return () => clearTimeout(timeoutId);
+  }, [isIdling, idleDelayMs]);
 
   // 4. Knight Animation
 
@@ -127,6 +119,9 @@ const RevealOverlay = (config: RevealConfig) => {
   const yShift = -55
   const [visibleMask, setVisibleMask] = useState<boolean[]>(Array(text.length).fill(false)); // Animation reveals content
   const [canvasOpacity, setCanvasOpacity] = useState(1); // Disappear at end
+  // Kept across effect restarts so take-off continues from the idle loop instead of replaying the intro
+  const frameRef = useRef(0);
+  const currentXRef = useRef(0);
   useEffect(() => {
     if (images.length !== frameCount || !inView) return;
 
@@ -144,8 +139,8 @@ const RevealOverlay = (config: RevealConfig) => {
     const idleFrames = { end: 13, loopStart: 10 };
     const moveFrames = { start: 16, end: frameCount, loopStart: 41 };
 
-    let currentX = startX;
-    let frame = 0;
+    let currentX = currentXRef.current;
+    let frame = frameRef.current;
 
     const interval = setInterval(() => {
 
@@ -157,12 +152,14 @@ const RevealOverlay = (config: RevealConfig) => {
       if (frame >= frameCount) {
         frame = moveFrames.loopStart;
       }
+      frameRef.current = frame;
 
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.drawImage(images[frame], 0, 0, canvasWidth, canvasHeight);
 
       if (startMove && frame >= moveFrames.start) {
         currentX += moveSpeed;
+        currentXRef.current = currentX;
         container.style.transform = `translate(${currentX}px , ${yShift}%)`;
 
         // Update visible mask based on sprite position
@@ -280,6 +277,17 @@ const RevealOverlay = (config: RevealConfig) => {
       {/* Sprite container */}
       <div
         ref={containerRef}
+        role={isIdling ? "button" : undefined}
+        tabIndex={isIdling ? 0 : -1}
+        aria-label={isIdling ? "Send the knight off" : undefined}
+        aria-hidden={!isIdling}
+        onClick={() => isIdling && setStartMove(true)}
+        onKeyDown={(e) => {
+          if (isIdling && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            setStartMove(true);
+          }
+        }}
         style={{
           position: "absolute",
           top: "50%",
@@ -288,7 +296,8 @@ const RevealOverlay = (config: RevealConfig) => {
           width: `${canvasWidth}px`,
           height: `${canvasHeight}px`,
           zIndex: 20,
-          pointerEvents: "none",
+          pointerEvents: isIdling ? "auto" : "none",
+          cursor: isIdling ? "pointer" : undefined,
           willChange: "transform",
           opacity: canvasOpacity,
           transition: "opacity 0.3s ease-out",

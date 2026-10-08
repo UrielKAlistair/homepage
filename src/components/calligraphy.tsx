@@ -1,17 +1,35 @@
-import { useEffect, useRef} from 'react';
-import { svg, animate } from "animejs";
+import { useEffect, useRef, useState } from 'react';
+import { svg, animate, type JSAnimation } from "animejs";
 
 type HeroTextProps = {
     className?: string;
 };
 
+// Below md the single line is too small to read, so use the two-line version (scripts/stack-header-svg.py)
+const STACKED_QUERY = "(max-width: 767px)";
+
+function useStacked() {
+    const [stacked, setStacked] = useState(() => window.matchMedia(STACKED_QUERY).matches);
+
+    useEffect(() => {
+        const query = window.matchMedia(STACKED_QUERY);
+        const onChange = () => setStacked(query.matches);
+        query.addEventListener("change", onChange);
+        return () => query.removeEventListener("change", onChange);
+    }, []);
+
+    return stacked;
+}
+
 function HeroText({ className = "" }: HeroTextProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const stacked = useStacked();
 
     useEffect(() => {
         let isMounted = true;
+        const animations: JSAnimation[] = [];
 
-        fetch("/header.svg")
+        fetch(stacked ? "/header-stacked.svg" : "/header.svg")
             .then((res) => res.text())
             .then((svgText) => {
                 if (!isMounted || !containerRef.current) return;
@@ -39,33 +57,34 @@ function HeroText({ className = "" }: HeroTextProps) {
                 });
 
                 // Animate each path
-                paths.map((path, index) => {
+                paths.forEach((path, index) => {
                     const drawable = svg.createDrawable(path);
-                    return animate(drawable, {
+                    animations.push(animate(drawable, {
                         draw: ["0 0", "0 1"],
                         duration: 1000,
                         easing: "easeInOutQuad",
                         delay: 2800 - 40 * index,
                         onComplete: () => {
-                            animate(path, {
+                            animations.push(animate(path, {
                                 fillOpacity: [0, 1],
                                 duration: 1000,
                                 easing: "easeInOutQuad",
-                            });
+                            }));
                         }
-                    });
+                    }));
                 });
             });
 
         return () => {
             isMounted = false;
+            animations.forEach((animation) => animation.pause());
         };
-    }, []);
+    }, [stacked]);
 
     return (
         <div
             ref={containerRef}
-            className={`w-[75vw] aspect-[11/1] mx-auto ${className}`}
+            className={`mx-auto ${stacked ? "w-[min(88vw,32rem)] aspect-[590/225]" : "w-[75vw] aspect-[11/1]"} ${className}`}
         />
     );
 }

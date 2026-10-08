@@ -1,8 +1,9 @@
 import { useRef, useState } from "react"
 import Navbar from "@/components/navbar";
+import BorderTrace from "@/components/bordertrace";
 
 const Poetry = () => {
-  const runeText = "ᛞ ᚱ ᚨ ᚢ ᛗ ᚱ"
+  const poemGlowMs = 1200 // one full pulse of the ❖ loading glow
 
   const poems = [
     {
@@ -37,6 +38,7 @@ const Poetry = () => {
   const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>({})
   const [poemLoading, setPoemLoading] = useState(false)
   const [contentVisible, setContentVisible] = useState(true)
+  const [tracedCards, setTracedCards] = useState<Record<string, boolean>>({})
   const [flyingCard, setFlyingCard] = useState<{
     poem: (typeof poems)[number]
     from: { top: number; left: number; width: number; height: number }
@@ -52,10 +54,14 @@ const Poetry = () => {
 
     const poemImage = new Image()
     poemImage.src = poem.poemImage
+    const startedAt = performance.now()
 
+    // The loading glow always plays for at least poemGlowMs, even when the image is cached
     const revealPoem = () => {
-      setPoemLoading(false)
-      onReady()
+      window.setTimeout(() => {
+        setPoemLoading(false)
+        onReady()
+      }, Math.max(0, poemGlowMs - (performance.now() - startedAt)))
     }
 
     if (poemImage.complete) {
@@ -72,12 +78,23 @@ const Poetry = () => {
       return
     }
 
+    // No card slot on mobile: fade the current poem out, breathe the loading glow, then fade the new one in
     if (window.innerWidth < 768) {
-      loadPoem(poem, () => {
-        setDisplayedPoem(poem)
-        setAnimating(false)
-        setContentVisible(true)
-      })
+      setAnimating(true)
+      setContentVisible(false)
+
+      window.setTimeout(() => {
+        loadPoem(poem, () => {
+          setDisplayedPoem(poem)
+          // Let the new poem mount hidden first so it fades in rather than snapping
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setContentVisible(true)
+              setAnimating(false)
+            })
+          })
+        })
+      }, displayedPoem ? 300 : 0)
       return
     }
 
@@ -152,7 +169,8 @@ const Poetry = () => {
             <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background/25 p-4">
               {/* Background */}
               <div
-                className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80 [animation:poem-rune-loading_1.7s_ease-in-out_infinite]" : "text-foreground/15"}`}
+                className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80" : "text-foreground/15"}`}
+                style={poemLoading ? { animation: `poem-rune-loading ${poemGlowMs}ms ease-in-out infinite` } : undefined}
               >
                 ❖
               </div>
@@ -170,22 +188,6 @@ const Poetry = () => {
             <div className="hidden md:flex md:h-full md:items-center md:justify-center">
               <div className="relative aspect-[5/7] w-full">
               
-                {/* Runic Border */}
-                <div className={`pointer-events-none absolute -inset-3 rounded-[1.4rem] transition-opacity duration-300 ${displayedPoem ? "opacity-100" : "opacity-45"}`}>
-                    <div className={`absolute left-5 right-5 top-1 overflow-hidden text-[10px] tracking-[0.22em] transition-all duration-300 ${displayedPoem ? (contentVisible ? "text-sky-300/85 drop-shadow-[0_0_10px_rgba(56,189,248,0.55)]" : "text-foreground/25") : "text-foreground/25"}`}>
-                      {runeText}
-                    </div>
-                    <div className={`absolute bottom-2 left-5 right-5 overflow-hidden text-right text-[10px] tracking-[0.22em] transition-all duration-300 ${displayedPoem ? (contentVisible ? "text-sky-300/85 drop-shadow-[0_0_10px_rgba(56,189,248,0.55)]" : "text-foreground/25") : "text-foreground/25"}`}>
-                      {runeText}
-                    </div>
-                    <div className={`absolute bottom-5 left-1 top-5 overflow-hidden text-[10px] tracking-[0.12em] [writing-mode:vertical-rl] transition-all duration-300 ${displayedPoem ? (contentVisible ? "text-sky-300/85 drop-shadow-[0_0_10px_rgba(56,189,248,0.55)]" : "text-foreground/25") : "text-foreground/25"}`}>
-                      {runeText+runeText}
-                    </div>
-                    <div className={`absolute bottom-5 right-1 top-5 overflow-hidden text-[10px] tracking-[0.12em] [writing-mode:vertical-rl] rotate-180 transition-all duration-300 ${displayedPoem ? (contentVisible ? "text-sky-300/85 drop-shadow-[0_0_10px_rgba(56,189,248,0.55)]" : "text-foreground/25") : "text-foreground/25"}`}>
-                      {runeText+runeText}
-                    </div>
-                </div>
-
                 {/* Clickable card Image on the slot */}
                 <button
                   ref={slotRef}
@@ -223,47 +225,60 @@ const Poetry = () => {
         </section>
         
         {/* This section holds the scrollable cards for the poems */}
-        <section className="min-w-0 rounded-3xl border border-border bg-muted/70 md:h-full min-h-0">
+        <section className="min-w-0 overflow-hidden rounded-3xl border border-border bg-muted/70 md:h-full min-h-0">
           <div className="flex overflow-x-auto md:h-full md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             {poems.map((poem, index) => {
               const isDisplayed = displayedPoem?.title === poem.title
               const cardLoaded = loadedCards[poem.title]
+              const cardTraced = tracedCards[poem.title]
 
               return (
                 <div
                   key={poem.title}
                   className="shrink-0 px-3 py-3 first:pl-4 last:pr-4 md:w-full md:first:pt-4 md:last:pb-4"
                 >
-                  <button
-                    ref={(node) => {
-                      cardRefs.current[poem.title] = node
-                    }}
-                    type="button"
-                    onClick={() => startCardAnimation(poem)}
-                    disabled={isDisplayed}
-                    className={`group relative w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${isDisplayed ? "cursor-default border-border opacity-45" : "cursor-pointer border-border hover:-translate-y-1 hover:rotate-[-2.5deg] hover:scale-[1.02] hover:border-foreground hover:shadow-[0_0_45px_rgba(0,0,0,0.28)]"}`}
-                  >
-                    <img
-                      src={poem.cardPlaceholder}
-                      alt=""
-                      aria-hidden="true"
-                      className={`absolute inset-0 aspect-[5/7] h-full w-full scale-110 object-contain blur-xl transition-opacity duration-300 ${cardLoaded ? "opacity-0" : "opacity-100"}`}
-                    />
-                    <img
-                      src={poem.cardImage}
-                      alt={`${poem.title} card`}
-                      decoding="async"
-                      onLoad={() => {
-                        setLoadedCards((current) =>
+                  {/* Wrapper matches the card's box, so the trace lines up with its border without being clipped */}
+                  <div className="relative">
+                    <BorderTrace
+                      radius={16}
+                      onDone={() =>
+                        setTracedCards((current) =>
                           current[poem.title] ? current : { ...current, [poem.title]: true }
                         )
-                      }}
-                      className={`relative z-10 aspect-[5/7] w-full object-contain transition-[opacity,transform] duration-300 ${cardLoaded ? "opacity-100" : "opacity-0"} ${isDisplayed ? "" : "group-hover:scale-[1.04]"}`}
+                      }
                     />
-                    {!isDisplayed && (
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-3 pb-3 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100"/>
-                    )}
-                  </button>
+                    <button
+                      ref={(node) => {
+                        cardRefs.current[poem.title] = node
+                      }}
+                      type="button"
+                      onClick={() => startCardAnimation(poem)}
+                      disabled={isDisplayed}
+                      className={`group relative block w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${!cardTraced ? "pointer-events-none opacity-0" : isDisplayed ? "cursor-default border-border opacity-45" : "cursor-pointer border-border hover:-translate-y-1 hover:rotate-[-2.5deg] hover:scale-[1.02] hover:border-foreground hover:shadow-[0_0_45px_rgba(0,0,0,0.28)]"}`}
+                    >
+                      <img
+                        src={poem.cardPlaceholder}
+                        alt=""
+                        aria-hidden="true"
+                        className={`absolute inset-0 aspect-[5/7] h-full w-full scale-110 object-contain blur-xl transition-opacity duration-300 ${cardLoaded ? "opacity-0" : "opacity-100"}`}
+                      />
+                      <img
+                        src={poem.cardImage}
+                        alt={`${poem.title} card`}
+                        decoding="async"
+                        onLoad={() => {
+                          setLoadedCards((current) =>
+                            current[poem.title] ? current : { ...current, [poem.title]: true }
+                          )
+                        }}
+                        className={`relative z-10 aspect-[5/7] w-full object-contain transition-[opacity,transform] duration-300 ${cardLoaded ? "opacity-100" : "opacity-0"} ${isDisplayed ? "" : "group-hover:scale-[1.04]"}`}
+                      />
+                      {/* Fixed-height shade above the image; the card art is letterboxed, so it can't sit in the gaps */}
+                      {!isDisplayed && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               )
             })}

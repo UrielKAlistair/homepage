@@ -19,11 +19,12 @@ export default function Navbar() {
     { to: "/trail", label: "The Trail" },
     { to: "/poetry", label: "Poetry" },
   ]
+  const isActive = (to: string) => location.pathname === to
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" })
 
   return (
     <>
-      <header className="fixed top-0 z-50 flex w-full items-center justify-between bg-background px-6 py-4 text-white">
+      <header className="fixed top-0 z-50 flex w-full items-center justify-between border-b border-border bg-background/80 h-[72px] px-6 text-white backdrop-blur-md">
         <h1 className="text-xl font-bold tracking-widest">
           <Link
             to="/"
@@ -44,7 +45,10 @@ export default function Navbar() {
             <Link
               key={link.to}
               to={link.to}
-              className="transition-colors duration-200 hover:text-gray-300"
+              aria-current={isActive(link.to) ? "page" : undefined}
+              className={`underline-offset-8 decoration-2 transition-colors duration-200 ${
+                isActive(link.to) ? "text-white underline" : "text-gray-400 hover:text-gray-200"
+              }`}
               onClick={() => {
                 setOpen(false)
                 if (link.to === location.pathname) {
@@ -63,6 +67,7 @@ export default function Navbar() {
             href="https://github.com/UrielKAlistair"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="GitHub"
             className="transition-colors duration-200 hover:text-gray-400"
           >
             <Github className="h-5 w-5" />
@@ -71,6 +76,7 @@ export default function Navbar() {
             href="https://linkedin.com/in/UrielKAlistair"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="LinkedIn"
             className="transition-colors duration-200 hover:text-gray-400"
           >
             <Linkedin className="h-5 w-5" />
@@ -94,6 +100,8 @@ export default function Navbar() {
                   <Link
                     key={link.to}
                     to={link.to}
+                    aria-current={isActive(link.to) ? "page" : undefined}
+                    className={isActive(link.to) ? "text-white" : "text-gray-400"}
                     onClick={() => {
                       setOpen(false)
                       if (link.to === location.pathname) {

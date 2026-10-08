@@ -70,8 +70,8 @@ All colors MUST be HSL.
   }
 
   50% {
-    transform: scale(1.22);
-    opacity: 0.9;
+    transform: scale(1.12);
+    opacity: 0.85;
     text-shadow: 0 0 18px rgba(56, 189, 248, 0.55), 0 0 36px rgba(56, 189, 248, 0.28);
   }
 }

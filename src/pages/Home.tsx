@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import Autoplay from "embla-carousel-autoplay";
 import { Github, ExternalLink } from "lucide-react";
 import { useRef } from "react";
+import { format } from "date-fns";
 import Navbar from "@/components/navbar";
 import SlideIn from "@/components/slidein";
 import RevealOverlay from "@/components/reveal";
@@ -22,28 +23,31 @@ const Home = () => {
         {
             title: "Poetry",
             description: "Musings.",
-            lastUpdate: "28/9/25",
+            lastUpdate: "2025-09-28",
             technologies: ["Rumination"],
             demo: "/poetry",
             newTab: false
         },
         {
-            title: "RAG ",
+            title: "RAG",
             description: "A learning exercise in making a vectorized retrieval pipeline. Augments an LLM to answer questions from large pdf sources efficiently.",
             technologies: ["Frustrating LLMs", "Fighting Rate limits"],
             github: "https://github.com/UrielKAlistair/Textbook_RAG",
-            lastUpdate: "22/8/25",
+            lastUpdate: "2025-08-22",
             newTab: true
         },
-        {           
-            title: "Hmm...",
-            description: "Looks like I have more space here. Perhaps I'll add something later.",
-            technologies: ["Procrastination"]
+        {
+            title: "Noisy Music Genre Classification",
+            description: "Deep-learning models that classify noisy music mashups from log-mel spectrograms. Trained CNN, CNN-BiLSTM & EfficientNet, reaching 93.1% macro-F1.",
+            technologies: ["CNN", "EfficientNet", "Spectrograms"],
+            github: "https://github.com/UrielKAlistair/DLGenAIProject2026T1",
+            demo: "https://huggingface.co/spaces/UrielKAlistair/efficientspace",
+            newTab: true
         },
         {
             title: "The Trail",
             description: "A compendium of knowledge.",
-            lastUpdate: "25/3/26",
+            lastUpdate: "2026-03-25",
             technologies: ["Wanderlust"],
             demo: "/trail",
             newTab: false
@@ -53,7 +57,7 @@ const Home = () => {
         <div className="min-h-screen bg-background overflow-hidden">
             <Navbar />
             {/* Hero Section */}
-            <section className="relative flex items-center justify-center bg-secondary/[0.30] py-10">
+            <section className="relative flex items-center justify-center bg-secondary/[0.30] py-16 md:py-10">
                 <HeroText className={sectionMaxWidthClass} />
             </section>
 
@@ -78,28 +82,35 @@ const Home = () => {
                         <CarouselContent>
                             {projects.map((project, index) => (
                                 <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3 flex-shrink-0">
-                                    <Card key={index} className="hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between h-full">
+                                    <Card key={index} className="relative hover:shadow-lg hover:border-muted-foreground/40 transition duration-300 flex flex-col justify-between h-full">
+                                        {/* Whole-card link sits underneath; the icon links are raised above it */}
+                                        <a
+                                            href={project.demo ?? project.github}
+                                            target={project.newTab ? "_blank" : undefined}
+                                            rel="noopener noreferrer"
+                                            aria-label={project.title}
+                                            className="absolute inset-0 z-0 rounded-lg"
+                                        />
                                         <CardHeader className="space-y-2 p-5">
-                                            <CardTitle className="flex items-center justify-between">
+                                            <CardTitle className="flex items-start justify-between gap-3">
                                                 {project.title}
-                                                <div className="flex space-x-2">
+                                                <div className="relative z-10 flex space-x-2 pt-1">
                                                     {project.github &&(
-                                                    <a href={project.github} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                                                    <a href={project.github} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" aria-label={`${project.title} on GitHub`} className="text-muted-foreground hover:text-foreground">
                                                         <Github className="h-4 w-4" />
                                                     </a>
                                                     )}
                                                     {
-                                                    project.demo && (<a href={project.demo} className="text-muted-foreground hover:text-foreground">
+                                                    project.demo && (<a href={project.demo} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" aria-label={`${project.title} demo`} className="text-muted-foreground hover:text-foreground">
                                                         <ExternalLink className="h-4 w-4" />
                                                     </a>)}
                                                 </div>
                                             </CardTitle>
                                             <CardDescription>
-                                                {project.description} <br/>
-                                                Last Update: {project.lastUpdate}
+                                                {project.description}
                                             </CardDescription>
                                         </CardHeader>
-                                        <CardContent className="px-5 pb-5 pt-0">
+                                        <CardContent className="px-5 pb-5 pt-0 space-y-3">
                                             <div className="flex flex-wrap gap-2">
                                                 {project.technologies.map((tech, techIndex) => (
                                                     <Badge key={techIndex} variant="outline">
@@ -107,14 +118,22 @@ const Home = () => {
                                                     </Badge>
                                                 ))}
                                             </div>
+                                            {project.lastUpdate && (
+                                                <p className="text-xs text-muted-foreground/70">
+                                                    Updated {format(new Date(project.lastUpdate), "MMM yyyy")}
+                                                </p>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 </CarouselItem>
                             ))}
 
                         </CarouselContent>
-                        <CarouselPrevious className="ml-4" />
-                        <CarouselNext className="mr-4" />
+                        {/* Below md the side arrows would hang off-screen, so they sit in a row under the cards */}
+                        <div className="mt-4 flex justify-center gap-4 md:mt-0">
+                            <CarouselPrevious className="static translate-y-0 md:absolute md:-translate-y-1/2 md:ml-4" />
+                            <CarouselNext className="static translate-y-0 md:absolute md:-translate-y-1/2 md:mr-4" />
+                        </div>
                     </Carousel>
 
                     <footer className="pt-3 pb-2 text-center text-xs text-muted-foreground">
@@ -168,8 +187,12 @@ const Home = () => {
                         <div className="order-2 md:order-1 p-8">
                             <SlideIn threshold={0.1}>
                                 <img
-                                    src="/uk-sunrise.jpg"
+                                    src="/uk-sunrise.webp"
                                     alt="UK staring into the sunrise at coorg"
+                                    width={1200}
+                                    height={855}
+                                    loading="lazy"
+                                    decoding="async"
                                     className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
                                 />
                             </SlideIn>
