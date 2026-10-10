@@ -75,3 +75,27 @@ All colors MUST be HSL.
     text-shadow: 0 0 18px rgba(56, 189, 248, 0.55), 0 0 36px rgba(56, 189, 248, 0.28);
   }
 }
+
+/* Trail graph: edges to topics fade in with their topics */
+.react-flow__edge.trail-topic-edge path {
+  animation: trail-fade-in 300ms ease-out both;
+}
+
+@keyframes trail-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Trail territories: cells fade between owners as chapters move */
+.trail-territory-cell {
+  fill: transparent;
+  stroke-width: 1;
+  transition: fill 200ms ease, stroke 200ms ease;
+}
+
+.trail-territory-label {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+}
