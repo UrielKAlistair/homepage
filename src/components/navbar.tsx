@@ -19,7 +19,8 @@ export default function Navbar() {
     { to: "/trail", label: "The Trail" },
     { to: "/poetry", label: "Poetry" },
   ]
-  const isActive = (to: string) => location.pathname === to
+  // Notes belong to the trail
+  const isActive = (to: string) => location.pathname === to || (to === "/trail" && location.pathname.startsWith("/notes/"))
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" })
 
   return (

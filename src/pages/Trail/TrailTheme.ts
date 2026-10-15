@@ -5,6 +5,8 @@ export const TrailActions = createContext({
     focusChapter: (_id: string) => {}, // bring to the top
     toggleChapter: (_id: string) => {}, // collapse or reopen in place
     flyToChapter: (_id: string) => {}, // move the camera onto it
+    moveChapterBy: (_id: string, _dx: number, _dy: number) => {}, // in flow units
+    saveArrangement: () => {},
 });
 
 export const chapterColors: Record<TrailColor, { circle: string; dot: string; panel: string; tint: string }> = {
@@ -25,5 +27,17 @@ export const chapterColors: Record<TrailColor, { circle: string; dot: string; pa
         dot: "bg-blue-400",
         panel: "border-blue-300/25",
         tint: "from-blue-400/[0.09]",
+    },
+    green: {
+        circle: "border-emerald-200 bg-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.25)]",
+        dot: "bg-emerald-400",
+        panel: "border-emerald-300/25",
+        tint: "from-emerald-400/[0.09]",
+    },
+    white: {
+        circle: "border-white bg-slate-200 shadow-[0_0_40px_rgba(226,232,240,0.2)]",
+        dot: "bg-slate-200",
+        panel: "border-white/25",
+        tint: "from-white/[0.06]",
     },
 };

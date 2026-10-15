@@ -1,48 +1,47 @@
-import { memo, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { useStore } from "@xyflow/react";
+import { HexPattern } from "@/components/hexgrid";
+import { hexCentre, hexColumnWidth, hexPoints as hexPolygon, hexRowHeight } from "@/lib/hexgrid";
 import type { TrailColor } from "./TrailData";
 import { domains } from "./TrailData";
+import { territoryCellRadius as radius, territoryReach as reach } from "./TrailLayout";
 import type { Rect } from "./TrailLayout";
 
-// Hexagonal territories behind the chapters. Every cell asks one question: which chapter am I
-// closest to? The answer depends only on where the chapters are right now, so any arrangement,
+// The hex fabric behind the trail, and the territories coloured into it. Every cell asks one
+// question: which chapter am I closest to? The answer depends only on where the chapters are right now, so any arrangement,
 // overlaps included, always draws the same way and fully reverts when things move apart.
 
 export type TerritoryChapter = { id: string; rect: Rect; color: TrailColor; z: number };
 
-const radius = 22; // circumradius of a flat-topped hex cell, in flow units
-const reach = 52; // how far a territory extends beyond its chapter's edge
-const cellScale = 0.9; // cells are drawn slightly small, leaving hairline gaps
-const rowHeight = Math.sqrt(3) * radius;
-const columnWidth = 1.5 * radius;
+const rowHeight = hexRowHeight(radius);
+const columnWidth = hexColumnWidth(radius);
 const gridBlock = 8; // the grid grows in blocks of cells, so dragging rarely rebuilds it
 
 const rgb: Record<TrailColor, string> = {
     orange: "251, 146, 60",
     red: "248, 113, 113",
     blue: "96, 165, 250",
+    green: "52, 211, 153",
+    white: "226, 232, 240",
 };
 // Solid but muted, so labels read as part of the background
 const labelColors: Record<TrailColor, string> = {
     orange: "#b9875f",
     red: "#b67272",
     blue: "#7193c2",
+    green: "#6aa98a",
+    white: "#9ba4b1",
 };
 const labelFontSize = 13;
 const labelCharWidth = labelFontSize * 0.9; // glyph plus 0.3em tracking, a slight overestimate
 
-const hexPoints = (() => {
-    const r = radius * cellScale;
-    return Array.from({ length: 6 }, (_, i) => {
-        const angle = (Math.PI / 3) * i;
-        return `${(r * Math.cos(angle)).toFixed(2)},${(r * Math.sin(angle)).toFixed(2)}`;
-    }).join(" ");
-})();
+const hexPoints = hexPolygon(radius);
+const cellCentre = (col: number, row: number) => hexCentre(col, row, radius);
 
-const cellCentre = (col: number, row: number) => ({
-    x: col * columnWidth,
-    y: row * rowHeight + (Math.abs(col) % 2 === 1 ? rowHeight / 2 : 0),
-});
+// The bare fabric: every cell, faintly, everywhere. It fades out when zoomed far out, where the
+// cells would shrink to a few pixels and shimmer.
+const fabricStroke = "rgba(255, 255, 255, 0.055)";
+const fabricOpacity = (zoom: number) => Math.min(1, Math.max(0, (zoom - 0.2) / 0.25));
 
 // The six neighbours of a flat-topped cell in "odd columns shifted down" offset coordinates
 const neighbours = (col: number, row: number): [number, number][] => {
@@ -161,6 +160,7 @@ const transformSelector = (state: { transform: [number, number, number] }) => st
 
 const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
     const [tx, ty, zoom] = useStore(transformSelector);
+    const fabricId = `trail-fabric-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
     const layerRef = useRef<SVGGElement>(null);
     const applied = useRef(new Map<string, string>());
 
@@ -210,6 +210,11 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
 
     return (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" style={{ zIndex: 0 }} aria-hidden="true">
+            <defs>
+                {/* Lines stay one screen pixel wide at every zoom */}
+                <HexPattern id={fabricId} radius={radius} transform={`translate(${tx} ${ty}) scale(${zoom})`} stroke={fabricStroke} strokeWidth={1 / zoom} />
+            </defs>
+            <rect width="100%" height="100%" fill={`url(#${fabricId})`} opacity={fabricOpacity(zoom)} />
             <g transform={`translate(${tx} ${ty}) scale(${zoom})`}>
                 <g ref={layerRef}>{cellElements}</g>
                 {labels.map((label) => (

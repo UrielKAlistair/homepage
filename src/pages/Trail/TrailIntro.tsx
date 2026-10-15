@@ -29,19 +29,13 @@ const TrailIntro = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 
                 <dl className="space-y-4 text-sm leading-relaxed">
                     <div>
-                        <dt className="font-semibold text-white">Chapters and topics</dt>
-                        <dd className="text-white/65">
-                            Each panel is a chapter, a self-contained area like Basic ML or Linear Algebra. The smaller cards inside are its topics.
-                        </dd>
-                    </div>
-                    <div>
                         <dt className="font-semibold text-white">Arrows</dt>
-                        <dd className="text-white/65">An arrow means "this comes first". Only strict prerequisites are drawn.</dd>
+                        <dd className="text-white/65">Solid arrows are strict prerequisites; dotted arrows are soft ones.</dd>
                     </div>
                     <div>
-                        <dt className="font-semibold text-white">Colours</dt>
+                        <dt className="font-semibold text-white">Domains covered</dt>
                         <dd className="text-white/65">
-                            The faint territories group chapters by field:
+                            The broad areas I've written notes in:
                             <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
                                 {domains.map((domain) => (
                                     <span key={domain.color} className="flex items-center gap-2">
@@ -50,13 +44,6 @@ const TrailIntro = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open
                                     </span>
                                 ))}
                             </span>
-                        </dd>
-                    </div>
-                    <div>
-                        <dt className="font-semibold text-white">Make it yours</dt>
-                        <dd className="text-white/65">
-                            Drag a chapter by its header, fold it away with −, or click its title to zoom in. Your arrangement is remembered on
-                            this device, and Reset layout puts everything back.
                         </dd>
                     </div>
                 </dl>

@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, BackgroundVariant, MarkerType, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow } from "@xyflow/react";
+import { MarkerType, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { CircleHelp, RotateCcw } from "lucide-react";
 
 import Navbar from "@/components/navbar";
-import { chapters, domains } from "./TrailData";
+import { chapters } from "./TrailData";
 import { ChapterNode, TopicNode, dragHandleClass } from "./NodeTypes";
 import type { ChapterNodeData } from "./NodeTypes";
-import { TrailActions, chapterColors } from "./TrailTheme";
-import { chapterSize, collapsedRect, directPrerequisites, layoutTrail, visibleEdges } from "./TrailLayout";
+import { TrailActions } from "./TrailTheme";
+import { chapterSize, collapsedRect, directPrerequisites, layoutTrail, territoryCellRadius, territoryReach, visibleEdges } from "./TrailLayout";
 import type { ChapterPlacement, Rect } from "./TrailLayout";
 import { clearArrangement, introHidden, loadArrangement, saveArrangement } from "./trailStorage";
 import Territories from "./Territories";
@@ -33,8 +33,9 @@ const defaultEdgeOptions = {
     markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor, width: 14, height: 14 },
 };
 
-// Below this zoom the labels get too small to read, so small screens pan instead of shrinking further
-const minReadableZoom = 0.6;
+// Below this zoom the labels get too small to read, so the view pans instead of shrinking further.
+// Phones need a little more, since their text is already small.
+const minReadableZoom = () => (window.innerWidth >= 768 ? 0.5 : 0.6);
 const viewPadding = 24;
 const resetButtonClearance = 60; // top padding when starting from the top-left, so the Reset button covers nothing
 
@@ -50,6 +51,15 @@ const rectOf = (node: Node): Rect => ({
     y: node.position.y,
     width: Number(node.style?.width ?? chapterSize.width),
     height: Number(node.style?.height ?? chapterSize.height),
+});
+
+// The whole territory around an area, with room for the field labels above it
+const territoryMargin = territoryReach + territoryCellRadius * 2;
+const withTerritory = (area: Rect): Rect => ({
+    x: area.x - territoryMargin,
+    y: area.y - territoryMargin,
+    width: area.width + territoryMargin * 2,
+    height: area.height + territoryMargin * 2,
 });
 
 const boundsOf = (rects: Rect[]): Rect => {
@@ -72,7 +82,7 @@ const chapterNode = (id: string, rect: Rect, open: boolean, zIndex: number): Nod
         style: { width: rect.width, height: rect.height },
         zIndex,
         dragHandle: `.${dragHandleClass}`,
-        data: { title: chapter.title, color: chapter.color, open, topicCount: chapter.topics?.length ?? 0 },
+        data: { title: chapter.title, color: chapter.color, open, topicCount: chapter.topics?.length ?? 0, notes: chapter.notes },
     };
 };
 
@@ -119,11 +129,11 @@ const TrailCanvas = () => {
                 (container.clientWidth - viewPadding * 2) / area.width,
                 (container.clientHeight - viewPadding * 2) / area.height
             );
-            if (fitZoom >= minReadableZoom) {
+            if (fitZoom >= minReadableZoom()) {
                 fitBounds(area, { padding: 0.08, duration });
                 return;
             }
-            const zoom = minReadableZoom;
+            const zoom = minReadableZoom();
             const fitsVertically = area.height * zoom <= container.clientHeight - viewPadding * 2;
             setViewport(
                 {
@@ -170,7 +180,7 @@ const TrailCanvas = () => {
             setOrder(initialOrder);
             setOpenChapters(open);
             setNodes([...chapterNodes, ...topicNodes]);
-            requestAnimationFrame(() => showArea(boundsOf(chapterNodes.map(rectOf))));
+            requestAnimationFrame(() => showArea(withTerritory(boundsOf(chapterNodes.map(rectOf)))));
         });
     }, [setNodes, showArea]);
 
@@ -276,7 +286,7 @@ const TrailCanvas = () => {
                 .map((node) => ({ ...node, zIndex: zFor(chapterIds, node.id), data: { ...node.data, open: true } }))
         );
         setOpenChapters(new Set());
-        showArea(freshBounds.current, morphMs);
+        showArea(withTerritory(freshBounds.current), morphMs);
         await tween(moves);
 
         setNodes((all) => [...all, ...chapterIds.flatMap((id) => placements.current[id].topics)]);
@@ -290,7 +300,10 @@ const TrailCanvas = () => {
             visibleEdges(prerequisites, openChapters, chapters).map((edge) => ({
                 ...edge,
                 zIndex: Math.max(zFor(order, chapterOf(edge.source)), zFor(order, chapterOf(edge.target))) + 1,
-                className: edge.source.includes("/") || edge.target.includes("/") ? "trail-topic-edge" : undefined,
+                className: [
+                    edge.source.includes("/") || edge.target.includes("/") ? "trail-topic-edge" : "",
+                    edge.data?.soft ? "trail-soft-edge" : "",
+                ].join(" ").trim() || undefined,
             })),
         [openChapters, order]
     );
@@ -303,7 +316,17 @@ const TrailCanvas = () => {
         [nodes, order]
     );
 
-    const actions = useMemo(() => ({ focusChapter, toggleChapter, flyToChapter }), [focusChapter, toggleChapter, flyToChapter]);
+    // Drags that start on a topic move its chapter by hand (topics themselves never move)
+    const moveChapterBy = useCallback(
+        (id: string, dx: number, dy: number) =>
+            setNodes((all) => all.map((n) => (n.id === id ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n))),
+        [setNodes]
+    );
+
+    const actions = useMemo(
+        () => ({ focusChapter, toggleChapter, flyToChapter, moveChapterBy, saveArrangement: requestSave }),
+        [focusChapter, toggleChapter, flyToChapter, moveChapterBy, requestSave]
+    );
 
     return (
         <TrailActions.Provider value={actions}>
@@ -315,13 +338,13 @@ const TrailCanvas = () => {
                     defaultEdgeOptions={defaultEdgeOptions}
                     onNodesChange={onNodesChange}
                     onNodeDragStop={requestSave}
+                    nodeDragThreshold={0}
                     minZoom={0.2}
                     maxZoom={2}
                     nodesConnectable={false}
                     elementsSelectable={false}
                     proOptions={{ hideAttribution: true }}
                 >
-                    <Background variant={BackgroundVariant.Lines} gap={40} size={1} color="rgba(255,255,255,0.04)" />
                     <Territories chapters={territoryMode === "fixed" ? freshTerritory : liveTerritory} />
                 </ReactFlow>
 
@@ -348,15 +371,6 @@ const TrailCanvas = () => {
                 </div>
 
                 <TrailIntro open={introOpen} onOpenChange={setIntroOpen} />
-
-                <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-4 gap-y-1 rounded-2xl border border-border bg-background/70 px-4 py-2 text-xs text-white/60 backdrop-blur-sm">
-                    {domains.map((domain) => (
-                        <span key={domain.color} className="flex items-center gap-2">
-                            <span className={`h-2 w-2 rounded-full ${chapterColors[domain.color].dot}`} />
-                            {domain.label}
-                        </span>
-                    ))}
-                </div>
             </div>
         </TrailActions.Provider>
     );

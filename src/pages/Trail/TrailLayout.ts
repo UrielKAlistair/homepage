@@ -12,6 +12,10 @@ export const panelHeaderHeight = 64;
 const panelPadding = 28;
 const emptyPanelSize = { width: 300, height: 150 };
 
+// Territory geometry, shared by the territory layer and the camera
+export const territoryCellRadius = 22; // circumradius of a flat-topped hex cell, in flow units
+export const territoryReach = 52; // how far a territory extends beyond its chapter's edge
+
 export type Size = { width: number; height: number };
 export type Rect = XYPosition & Size;
 
@@ -24,12 +28,13 @@ export const topicNodeId = (chapterId: string, topicId: string) => `${chapterId}
 
 // One end of a prerequisite: a whole chapter, or one topic in it
 export type Endpoint = { chapter: string; topic?: string };
-export type Prerequisite = { from: Endpoint; to: Endpoint };
+export type Prerequisite = { from: Endpoint; to: Endpoint; soft?: boolean };
 
 // Collects every declared prerequisite and keeps only the direct ones: an edge is dropped when
-// a longer path already implies it. Each chapter is modelled as an entry point (its own
+// a longer strict path already implies it. Each chapter is modelled as an entry point (its own
 // requirements) and an exit point (what depends on it) with its topics in between, so chapter-
 // and topic-level prerequisites mix: requiring a chapter implies requiring all of its topics.
+// Soft prerequisites never make a strict one redundant, but are dropped when a strict path covers them.
 export function directPrerequisites(chapters: ChapterDoc[]): Prerequisite[] {
     const declared: Prerequisite[] = [];
     const parse = (ref: string, ownChapter?: string): Endpoint => {
@@ -42,10 +47,15 @@ export function directPrerequisites(chapters: ChapterDoc[]): Prerequisite[] {
     };
     for (const chapter of chapters) {
         for (const ref of chapter.requires ?? []) declared.push({ from: parse(ref), to: { chapter: chapter.id } });
+        for (const ref of chapter.softRequires ?? []) declared.push({ from: parse(ref), to: { chapter: chapter.id }, soft: true });
         for (const topic of chapter.topics ?? []) {
-            for (const ref of topic.requires ?? []) declared.push({ from: parse(ref, chapter.id), to: { chapter: chapter.id, topic: topic.id } });
+            const to = { chapter: chapter.id, topic: topic.id };
+            for (const ref of topic.requires ?? []) declared.push({ from: parse(ref, chapter.id), to });
+            for (const ref of topic.softRequires ?? []) declared.push({ from: parse(ref, chapter.id), to, soft: true });
         }
     }
+    const strict = declared.filter((p) => !p.soft);
+    const soft = declared.filter((p) => p.soft);
 
     // Graph nodes: "c:in", "c:out" per chapter and "c/t" per topic
     const outKey = (e: Endpoint) => (e.topic ? topicNodeId(e.chapter, e.topic) : `${e.chapter}:out`);
@@ -59,12 +69,12 @@ export function directPrerequisites(chapters: ChapterDoc[]): Prerequisite[] {
             link(topicNodeId(chapter.id, topic.id), `${chapter.id}:out`);
         }
     }
-    declared.forEach((p) => link(outKey(p.from), inKey(p.to)));
+    strict.forEach((p) => link(outKey(p.from), inKey(p.to)));
 
-    // Is `target` reachable from `source` without using the direct edge source -> target?
-    const reachableAvoidingDirect = (source: string, target: string) => {
+    // Is `target` reachable from `source` along strict prerequisites, optionally without the direct edge?
+    const reachable = (source: string, target: string, avoidDirect: boolean) => {
         const seen = new Set<string>();
-        const stack = (adjacency.get(source) ?? []).filter((next) => next !== target);
+        const stack = (adjacency.get(source) ?? []).filter((next) => !avoidDirect || next !== target);
         while (stack.length > 0) {
             const node = stack.pop()!;
             if (node === target) return true;
@@ -75,14 +85,17 @@ export function directPrerequisites(chapters: ChapterDoc[]): Prerequisite[] {
         return false;
     };
 
-    return declared.filter((p) => !reachableAvoidingDirect(outKey(p.from), inKey(p.to)));
+    return [
+        ...strict.filter((p) => !reachable(outKey(p.from), inKey(p.to), true)),
+        ...soft.filter((p) => !reachable(outKey(p.from), inKey(p.to), false)),
+    ];
 }
 
 // Turns prerequisites into drawn edges. An end inside a collapsed chapter attaches to its circle,
-// and edges that end up between the same two nodes are merged.
+// and edges that end up between the same two nodes are merged, a strict edge winning over a soft one.
 export function visibleEdges(prerequisites: Prerequisite[], openChapters: Set<string>, chapters: ChapterDoc[]): Edge[] {
     const edges = new Map<string, Edge>();
-    for (const { from, to } of prerequisites) {
+    for (const { from, to, soft } of prerequisites) {
         const source = from.topic && openChapters.has(from.chapter) ? topicNodeId(from.chapter, from.topic) : from.chapter;
         const target = to.topic && openChapters.has(to.chapter) ? topicNodeId(to.chapter, to.topic) : to.chapter;
         if (source === target) continue;
@@ -91,13 +104,14 @@ export function visibleEdges(prerequisites: Prerequisite[], openChapters: Set<st
         const sameChapter = from.chapter === to.chapter;
         const vertical = sameChapter && chapters.find((c) => c.id === from.chapter)?.topicDirection === "DOWN";
         const id = `${source}->${target}`;
+        if (soft && edges.has(id)) continue;
         edges.set(id, {
             id,
             source,
             target,
             sourceHandle: source.includes("/") && vertical ? "flow-out" : "out",
             targetHandle: target.includes("/") && vertical ? "flow-in" : "in",
-            data: { internalTo: sameChapter && source.includes("/") ? from.chapter : undefined },
+            data: { internalTo: sameChapter && source.includes("/") ? from.chapter : undefined, soft: !!soft },
         });
     }
     return [...edges.values()];
@@ -166,7 +180,8 @@ async function runPanelLayout(chapter: ChapterDoc, prerequisites: Prerequisite[]
             extent: "parent",
             draggable: false,
             position: { x: (elkNode.x ?? 0) + offsetX, y: elkNode.y ?? 0 },
-            style: { ...topicSize },
+            // React Flow ignores the pointer on nodes it can't drag; topics need it for links and hover
+            style: { ...topicSize, pointerEvents: "all" },
             data: { title: topic.title, color: chapter.color, direction, notes: topic.notes },
         };
     });
