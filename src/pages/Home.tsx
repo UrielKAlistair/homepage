@@ -1,38 +1,55 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "@/components/navbar";
 import Calligraphy from "@/components/calligraphy";
 import poetryWord from "@/assets/calligraphy-poetry.svg?raw";
-import placeholderWord from "@/assets/calligraphy-placeholder.svg?raw";
-import { transitionDoneEvent, useTransitionNavigate } from "@/hooks/use-transition-navigate";
-import { navHeight } from "@/lib/layout";
-import { trailReadyEvent } from "./Trail/TrailLayout";
-import TrailPreview from "./home/TrailPreview";
+import trailWord from "@/assets/calligraphy-trail.svg?raw";
+import aboutWord from "@/assets/calligraphy-about.svg?raw";
+import { transitionDoneEvent } from "@/hooks/use-transition-navigate";
+import { navHeight, stageInset } from "@/lib/layout";
+import TrailStage from "./home/TrailStage";
 import PoetryHand from "./home/PoetryHand";
+import AboutPanel from "./home/AboutPanel";
 import { homeReadyEvent, lastPanel, playedPanels, rememberPanel, rememberPlayed } from "./home/homeSession";
 
 // Three full-screen panels, one per scroll (CSS scroll snapping), with no scrollbar: dots on the
 // right show where you are, and a chevron at the foot of a panel says there's more below.
 // A panel's animation plays only while that panel is the one on screen, and only once per visit.
-// Leaving a view (Trail, Poetry) comes back to the panel it was entered from.
+// The trail panel holds the trail map itself, which grows to fill the screen at /trail (see
+// TrailStage); Poetry is its own page. Leaving either comes back to the panel it was entered from.
+// The navbar's links name panels too: here they scroll to their panel (leaving the full-size map
+// first), and from any other page they come back here, landing on it.
 
 const panels = [
-    { id: "trail", label: "The Trail", path: "/trail" },
-    { id: "poetry", label: "Poetry", path: "/poetry" },
-    { id: "more", label: "More", path: null },
+    { id: "trail", label: "The Trail" },
+    { id: "poetry", label: "Poetry" },
+    { id: "about", label: "About" },
 ] as const;
 type PanelId = (typeof panels)[number]["id"];
 const isPanel = (id: unknown): id is PanelId => panels.some((panel) => panel.id === id);
 const indexOf = (id: PanelId) => panels.findIndex((panel) => panel.id === id);
 
-// The Trail page's canvas (see Trail.tsx: padding, then a 1px border), so the preview can show
-// its view and grow straight into it
+// The full-size trail map's drawing area: the window below the navbar, inset, inside a 1px border
 function trailCanvasSize() {
-    const inset = (window.innerWidth >= 768 ? 24 : 12) + 1;
+    const inset = stageInset() + 1;
     return { width: window.innerWidth - inset * 2, height: window.innerHeight - navHeight() - inset * 2 };
 }
+
+// The panels' headings, written in calligraphy at one size: "Poetry" takes the heading width, and
+// every other word is scaled with it
+const headingWidth = "min(56vw, 17rem)";
+const svgSize = (svg: string) => {
+    const [width, height] = svg.match(/width="([\d.]+)" height="([\d.]+)"/)!.slice(1).map(Number);
+    return { width, height };
+};
+const poetryWidth = svgSize(poetryWord).width;
+const headingStyle = (svg: string) => {
+    const { width, height } = svgSize(svg);
+    return { width: `calc(${headingWidth} * ${width / poetryWidth})`, aspectRatio: `${width} / ${height}` };
+};
+const headingHeight = (svg: string) => `calc(${headingWidth} * ${svgSize(svg).height / poetryWidth})`;
 
 const cardWidthFor = () => (window.innerWidth >= 768 ? 170 : 112);
 
@@ -54,7 +71,7 @@ function useWindowValue<T>(read: () => T) {
 }
 
 const Panel = ({ id, children, onNext }: { id: PanelId; children: ReactNode; onNext?: () => void }) => (
-    <section data-panel={id} className="relative flex h-[100dvh] snap-start snap-always flex-col items-center justify-center px-4 pb-8 pt-[var(--nav-h)]">
+    <section data-panel={id} className="relative flex h-[100dvh] snap-start overflow-x-clip snap-always flex-col items-center justify-center px-4 pb-8 pt-[var(--nav-h)]">
         {/* A soft navy light behind each panel's centrepiece */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_52%,rgba(37,60,130,0.22),transparent_70%)]" />
         <div className="relative flex w-full flex-col items-center">{children}</div>
@@ -67,28 +84,27 @@ const Panel = ({ id, children, onNext }: { id: PanelId; children: ReactNode; onN
 );
 
 const Home = () => {
-    const navigate = useTransitionNavigate();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const expanded = location.pathname === "/trail";
     const scrollRef = useRef<HTMLDivElement>(null);
-    const returnTo = (useLocation().state as { returnTo?: string } | null)?.returnTo;
+    const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
     const [initial] = useState<PanelId>(() => {
-        const remembered = returnTo ?? lastPanel();
+        const remembered = expanded ? "trail" : (returnTo ?? lastPanel());
         return isPanel(remembered) ? remembered : "trail";
     });
     const [current, setCurrent] = useState<PanelId>(initial);
-    const [played] = useState(playedPanels); // as of arriving; panels finished since then just stay finished
-    const [trailFinished, setTrailFinished] = useState(played.has("trail"));
+    // As of arriving; panels finished since then just stay finished. Arriving at /trail, the map is already full size.
+    const [played] = useState(() => (expanded ? new Set([...playedPanels(), "trail"]) : playedPanels()));
     const canvas = useWindowValue(trailCanvasSize);
-    const aspect = canvas.width / canvas.height;
     const cardWidth = useWindowValue(cardWidthFor);
 
     // Open on the remembered panel before the first paint, so a transition back lands there.
-    // A panel is ready once its images are decoded, so nothing pops in during the transition;
-    // the trail panel, once its drawing is laid out (onTrailDrawn).
+    // A panel is ready once its images are decoded, so nothing pops in during the transition.
     useLayoutEffect(() => {
         const root = scrollRef.current;
         if (!root) return;
         root.scrollTop = indexOf(initial) * root.clientHeight;
-        if (initial === "trail") return;
         const images = [...root.querySelectorAll<HTMLImageElement>(`[data-panel="${initial}"] img`)];
         Promise.all(images.map((image) => image.decode().catch(() => {}))).then(() => window.dispatchEvent(new Event(homeReadyEvent)));
     }, [initial]);
@@ -98,8 +114,8 @@ const Home = () => {
     currentRef.current = current;
     useEffect(() => () => rememberPlayed(currentRef.current), []);
 
-    // Returning to another panel, the trail drawing (heavy to build) waits until the transition
-    // is over, so it can't stall the cards' flight
+    // Returning to another panel, the trail map (heavy to build) waits until the transition is
+    // over, so it can't stall the cards' flight
     const [drawTrail, setDrawTrail] = useState(!returnTo || initial === "trail" || !document.startViewTransition);
     useEffect(() => {
         if (drawTrail) return;
@@ -135,25 +151,37 @@ const Home = () => {
         root?.scrollTo({ top: index * root.clientHeight, behavior: "smooth" });
     };
 
-    const onTrailDrawn = useCallback(() => window.dispatchEvent(new Event(homeReadyEvent)), []);
-    const onTrailFinished = useCallback(() => {
-        setTrailFinished(true);
-        rememberPlayed("trail");
-    }, []);
+    // A panel's centrepiece waits until its heading is (nearly) written
+    const [written, setWritten] = useState(() => new Set<PanelId>([...played].filter(isPanel)));
+    const headingWritten = (id: PanelId) => () => setWritten((ids) => new Set(ids).add(id));
+    const onTrailFinished = useCallback(() => rememberPlayed("trail"), []);
     const onPoetryFinished = useCallback(() => rememberPlayed("poetry"), []);
-    const onMoreFinished = useCallback(() => rememberPlayed("more"), []);
-    const enterTrail = () => navigate("/trail", { state: { fromPreview: true }, readyEvent: trailReadyEvent });
+    const onAboutFinished = useCallback(() => rememberPlayed("about"), []);
+    const enterTrail = () => navigate("/trail", { state: { fromHome: true } });
+    // Back through history when the map was entered from here, so the browser's Back agrees
+    const exitTrail = () => ((location.state as { fromHome?: boolean } | null)?.fromHome ? navigate(-1) : navigate("/"));
+
+    // A navbar link chosen on the full-size map: the map leaves, and the page is already at the
+    // panel when it starts shrinking (TrailStage measures where to shrink to in a later effect)
+    const leavingFor = useRef<PanelId | null>(null);
+    const showPanel = (id: string) => {
+        if (!isPanel(id)) return;
+        if (!expanded) return goTo(indexOf(id));
+        leavingFor.current = id;
+        exitTrail();
+    };
+    useLayoutEffect(() => {
+        const root = scrollRef.current;
+        if (expanded || !root || !leavingFor.current) return;
+        root.scrollTop = indexOf(leavingFor.current) * root.clientHeight;
+        leavingFor.current = null;
+    }, [expanded]);
 
     return (
-        <div ref={scrollRef} className="home-panels h-[100dvh] snap-y snap-mandatory overflow-y-auto bg-night">
-            <Navbar
-                sections={{
-                    current: panels.find((panel) => panel.id === current)?.path ?? null,
-                    goTo: (to) => goTo(panels.findIndex((panel) => panel.path === to)),
-                }}
-            />
+        <div ref={scrollRef} className={`home-panels h-[100dvh] snap-y snap-mandatory bg-night ${expanded ? "overflow-hidden" : "overflow-y-auto"}`}>
+            <Navbar overlay sections={{ current, goTo: showPanel }} />
 
-            <nav aria-label="Sections" className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-3 md:right-6">
+            <nav aria-label="Sections" className={`fixed right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-3 md:right-6 ${expanded ? "hidden" : ""}`}>
                 {panels.map((panel, i) => (
                     <button
                         key={panel.id}
@@ -172,32 +200,37 @@ const Home = () => {
             </nav>
 
             <Panel id="trail" onNext={() => goTo(1)}>
-                <button
-                    type="button"
-                    onClick={enterTrail}
-                    aria-label="Enter the trail"
-                    className="overflow-hidden rounded-3xl border border-white/10 bg-night-panel transition-colors hover:border-white/25"
-                    style={{ aspectRatio: aspect, width: `min(88vw, calc((100dvh - 220px) * ${aspect}))`, viewTransitionName: "trail-map" }}
-                >
-                    {drawTrail && <TrailPreview canvas={canvas} active={current === "trail"} complete={played.has("trail")} onDrawn={onTrailDrawn} onFinished={onTrailFinished} />}
-                </button>
-                <button
-                    type="button"
-                    onClick={enterTrail}
-                    tabIndex={trailFinished ? 0 : -1}
-                    className={`mt-6 font-mono text-xs uppercase tracking-[0.25em] text-white/55 transition-all duration-700 hover:text-white ${trailFinished ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"}`}
-                >
-                    Enter the trail →
-                </button>
+                <div className="mb-10" style={headingStyle(trailWord)}>
+                    <Calligraphy svg={trailWord} active={current === "trail"} complete={played.has("trail")} onWritten={headingWritten("trail")} className="h-full w-full text-white" />
+                </div>
+                {/* As large as fits below the heading, above the chevron */}
+                <div style={{ width: `min(88vw, calc((100dvh - 180px - ${headingHeight(trailWord)} - 2.5rem) * ${(canvas.width + 2) / (canvas.height + 2)}))` }}>
+                    {drawTrail && (
+                        <TrailStage
+                            canvas={canvas}
+                            expanded={expanded}
+                            active={current === "trail" && written.has("trail")}
+                            complete={played.has("trail")}
+                            onEnter={enterTrail}
+                            onExit={exitTrail}
+                            onFinished={onTrailFinished}
+                        />
+                    )}
+                </div>
             </Panel>
 
             <Panel id="poetry" onNext={() => goTo(2)}>
-                <Calligraphy svg={poetryWord} active={current === "poetry"} complete={played.has("poetry")} className="mb-10 aspect-[219/94] w-[min(56vw,17rem)] text-white" />
-                <PoetryHand active={current === "poetry"} cardWidth={cardWidth} complete={played.has("poetry")} onFinished={onPoetryFinished} />
+                <div className="mb-10" style={headingStyle(poetryWord)}>
+                    <Calligraphy svg={poetryWord} active={current === "poetry"} complete={played.has("poetry")} onWritten={headingWritten("poetry")} className="h-full w-full text-white" />
+                </div>
+                <PoetryHand active={current === "poetry" && written.has("poetry")} cardWidth={cardWidth} complete={played.has("poetry")} onFinished={onPoetryFinished} />
             </Panel>
 
-            <Panel id="more">
-                <Calligraphy svg={placeholderWord} active={current === "more"} complete={played.has("more")} onFinished={onMoreFinished} className="aspect-[362/77] w-[min(80vw,28rem)] text-white" />
+            <Panel id="about">
+                <div className="mb-4 md:mb-8" style={headingStyle(aboutWord)}>
+                    <Calligraphy svg={aboutWord} active={current === "about"} complete={played.has("about")} onWritten={headingWritten("about")} onFinished={onAboutFinished} className="h-full w-full text-white" />
+                </div>
+                <AboutPanel active={current === "about" && written.has("about")} />
             </Panel>
         </div>
     );

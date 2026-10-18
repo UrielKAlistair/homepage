@@ -1,6 +1,8 @@
 import { Github, Linkedin, Menu } from "lucide-react"
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
+import { useTransitionNavigate } from "@/hooks/use-transition-navigate"
+import { homeReadyEvent } from "@/pages/home/homeSession"
 
 import {
   Sheet,
@@ -10,45 +12,38 @@ import {
   SheetTitle
 } from "@/components/ui/sheet"
 
-// On the home page the links name its panels: the one on screen is highlighted, and clicking
-// a link scrolls to its panel instead of opening the page.
-type NavbarSections = { current: string | null; goTo: (to: string) => void }
+// The links (and the name) are the home page's panels. On the home page, which passes
+// `sections`, the panel on screen is highlighted and a link scrolls to its panel; from any other
+// page a link goes back to the home page, landing on its panel.
+type NavbarSections = { current: string | null; goTo: (panel: string) => void }
 
-export default function Navbar({ sections }: { sections?: NavbarSections }) {
+const navLinks = [
+  { panel: "trail", label: "The Trail" },
+  { panel: "poetry", label: "Poetry" },
+  { panel: "about", label: "About" },
+]
+
+// The panel another page belongs to
+const pagePanel = (path: string) => (path === "/poetry" ? "poetry" : path.startsWith("/notes/") ? "trail" : null)
+
+// `overlay`: the page runs underneath the bar instead of starting below it
+export default function Navbar({ sections, overlay = false }: { sections?: NavbarSections; overlay?: boolean }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
-  const navLinks = [
-    { to: "/trail", label: "The Trail" },
-    { to: "/poetry", label: "Poetry" },
-    { to: "/about", label: "About" },
-  ]
-  // Notes belong to the trail
-  const isActive = (to: string) =>
-    sections ? sections.current === to : location.pathname === to || (to === "/trail" && location.pathname.startsWith("/notes/"))
-  const select = (to: string) => (event: { preventDefault: () => void }) => {
+  const navigate = useTransitionNavigate()
+  const isActive = (panel: string) => (sections ? sections.current : pagePanel(location.pathname)) === panel
+  const select = (panel: string) => (event: { preventDefault: () => void }) => {
+    event.preventDefault()
     setOpen(false)
-    if (sections && to !== "/about") {
-      event.preventDefault()
-      sections.goTo(to)
-    } else if (to === location.pathname) {
-      scrollToTop()
-    }
+    if (sections) sections.goTo(panel)
+    else navigate("/", { state: { returnTo: panel }, readyEvent: homeReadyEvent })
   }
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" })
 
   return (
     <>
       <header className="fixed top-0 z-50 flex h-[var(--nav-h)] w-full items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 text-white backdrop-blur-md">
         <h1 className="text-sm font-medium tracking-[0.35em]">
-          <Link
-            to="/"
-            className="transition-colors duration-200 hover:text-gray-300"
-            onClick={() => {
-              if (location.pathname === "/") {
-                scrollToTop()
-              }
-            }}
-          >
+          <Link to="/" state={{ returnTo: "trail" }} className="transition-colors duration-200 hover:text-gray-300" onClick={select("trail")}>
             UKA
           </Link>
         </h1>
@@ -57,13 +52,14 @@ export default function Navbar({ sections }: { sections?: NavbarSections }) {
         <nav className="hidden items-center gap-10 text-[0.7rem] font-light uppercase tracking-[0.3em] md:flex">
           {navLinks.map((link) => (
             <Link
-              key={link.to}
-              to={link.to}
-              aria-current={isActive(link.to) ? "page" : undefined}
+              key={link.panel}
+              to="/"
+              state={{ returnTo: link.panel }}
+              aria-current={isActive(link.panel) ? "page" : undefined}
               className={`underline-offset-[10px] decoration-1 transition-colors duration-300 ${
-                isActive(link.to) ? "text-white underline" : "text-white/45 hover:text-white/80"
+                isActive(link.panel) ? "text-white underline" : "text-white/45 hover:text-white/80"
               }`}
-              onClick={select(link.to)}
+              onClick={select(link.panel)}
             >
               {link.label}
             </Link>
@@ -105,11 +101,12 @@ export default function Navbar({ sections }: { sections?: NavbarSections }) {
               <nav className="flex flex-col gap-6 text-sm font-light uppercase tracking-[0.3em]">
                 {navLinks.map((link) => (
                   <Link
-                    key={link.to}
-                    to={link.to}
-                    aria-current={isActive(link.to) ? "page" : undefined}
-                    className={isActive(link.to) ? "text-white" : "text-white/50"}
-                    onClick={select(link.to)}
+                    key={link.panel}
+                    to="/"
+                    state={{ returnTo: link.panel }}
+                    aria-current={isActive(link.panel) ? "page" : undefined}
+                    className={isActive(link.panel) ? "text-white" : "text-white/50"}
+                    onClick={select(link.panel)}
                   >
                     {link.label}
                   </Link>
@@ -119,8 +116,7 @@ export default function Navbar({ sections }: { sections?: NavbarSections }) {
           </Sheet>
         </nav>
       </header>
-      {/* Pages flow below the bar; the home page's panels sit under it instead */}
-      {!sections && <div className="h-[var(--nav-h)]" aria-hidden="true" />}
+      {!overlay && <div className="h-[var(--nav-h)]" aria-hidden="true" />}
     </>
   )
 }

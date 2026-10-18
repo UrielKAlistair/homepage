@@ -1,10 +1,13 @@
-// Writes a word in Imperial Script as an SVG the calligraphy
+// Writes a word in a script font as an SVG the calligraphy
 // component can animate: one <path> per letter (its holes included, so counters stay open),
-// right to left, since the component draws the last path first.
+// in reverse text order, since the component draws the last path first.
+//
+// The site's words are in Fontaine de Diamant by Cataleya Butcher (free for personal use; ask the
+// designer before any commercial use), from fontspace.com or cufonfonts.com.
 //
 // Run: node scripts/text-to-calligraphy-svg.mjs <font.ttf> "<text>" <out.svg>
-// Needs opentype.js (npm install --no-save opentype.js) and Imperial Script from Google Fonts.
-import { writeFileSync } from "node:fs";
+// Needs the font file; opentype.js is a dev dependency.
+import { readFileSync, writeFileSync } from "node:fs";
 import opentype from "opentype.js";
 
 const fontSize = 90;
@@ -12,7 +15,8 @@ const tracking = 0.02; // extra space between letters, as a fraction of the font
 const padding = 6;
 
 const [fontFile, text, outFile] = process.argv.slice(2);
-const font = opentype.loadSync(fontFile);
+const bytes = readFileSync(fontFile);
+const font = opentype.parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
 
 // Lay the glyphs out by hand so tracking can be added
 const outlines = [];
@@ -25,19 +29,32 @@ glyphs.forEach((glyph, i) => {
     x += ((glyph.advanceWidth + kerning) / font.unitsPerEm) * fontSize + tracking * fontSize;
 });
 
-const toPath = (commands) => {
-    const p = new opentype.Path();
-    p.commands = commands;
-    return p;
-};
-const boxes = outlines.map((o) => toPath(o).getBoundingBox());
+// SVG path data for an outline (opentype.js's own toPathData writes NaN for some whole numbers)
+const pathData = (commands) =>
+    commands
+        .map((c) => {
+            const xy = (...pairs) => pairs.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join(" ");
+            if (c.type === "M" || c.type === "L") return c.type + xy([c.x, c.y]);
+            if (c.type === "Q") return "Q" + xy([c.x1, c.y1], [c.x, c.y]);
+            if (c.type === "C") return "C" + xy([c.x1, c.y1], [c.x2, c.y2], [c.x, c.y]);
+            return "Z";
+        })
+        .join("");
+
+const boxes = outlines.map((commands) => {
+    const path = new opentype.Path();
+    path.commands = commands;
+    return path.getBoundingBox();
+});
 const minX = Math.min(...boxes.map((b) => b.x1)) - padding;
 const minY = Math.min(...boxes.map((b) => b.y1)) - padding;
 const width = Math.max(...boxes.map((b) => b.x2)) - minX + padding;
 const height = Math.max(...boxes.map((b) => b.y2)) - minY + padding;
 
-const order = outlines.map((_, i) => i).sort((a, b) => boxes[b].x1 - boxes[a].x1);
-const paths = order.map((i) => `<path d="${toPath(outlines[i]).toPathData(2)}" fill="white"/>`).join("\n");
+const paths = outlines
+    .map((commands) => `<path d="${pathData(commands)}" fill="white"/>`)
+    .reverse()
+    .join("\n");
 writeFileSync(
     outFile,
     `<svg width="${width.toFixed(0)}" height="${height.toFixed(0)}" viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)}" fill="none" xmlns="http://www.w3.org/2000/svg">\n${paths}\n</svg>\n`

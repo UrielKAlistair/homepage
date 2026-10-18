@@ -1,7 +1,11 @@
 import { useLayoutEffect, useEffect, useRef, useState } from "react";
 
+// The knight clings to a wall at `wallX()` (a viewport x) until `active` and on screen, idles,
+// then dashes right across the line, revealing it, and off the screen.
 interface RevealConfig {
   text: string;
+  active: boolean;
+  wallX: () => number;
   startThreshold?: number;
   idleDelayMs?: number;
   moveDurationMs?: number;
@@ -9,12 +13,15 @@ interface RevealConfig {
 
 const RevealOverlay = (config: RevealConfig) => {
 
+  const rowRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLHeadingElement>(null);
 
   const {
     text,
+    active,
+    wallX,
     startThreshold = 0.1,
     idleDelayMs = 5000,
     moveDurationMs = 3000,
@@ -46,17 +53,26 @@ const RevealOverlay = (config: RevealConfig) => {
   const [isReady, setIsReady] = useState(false); // animation shouldn't start moving until we have positions
   const [canvasWidth, setCanvasWidth] = useState(200);
   const canvasHeight = canvasWidth * 1.5
+  // The knight's start (at the wall) and the screen's right edge, from the row's left edge
+  const [startX, setStartX] = useState(0);
+  const [screenRight, setScreenRight] = useState(window.innerWidth);
+  const wallXRef = useRef(wallX);
+  wallXRef.current = wallX;
 
   useLayoutEffect(() => {
     function updateLayout() {
+      // The line fills its row: each character is 0.6em wide plus tracking-wider's 0.05em
       const MONOSPACE_ASPECT = 0.6;
-      const screenWidth = window.innerWidth;
-      const targetWidth = screenWidth * 0.75;
-      const size = Math.min(targetWidth / (text.length * MONOSPACE_ASPECT), 80);
+      const TRACKING = 0.05;
+      const targetWidth = rowRef.current!.clientWidth * 0.95;
+      const size = Math.min(targetWidth / (text.length * (MONOSPACE_ASPECT + TRACKING)), 80);
       setFontSize(size);
       setCanvasWidth(Math.sqrt(size * 500));
 
       requestAnimationFrame(() => {
+        const rowLeft = rowRef.current!.getBoundingClientRect().left;
+        setStartX(wallXRef.current() - rowLeft);
+        setScreenRight(window.innerWidth - rowLeft);
         if (!textRef.current) return;
         const spans = textRef.current.querySelectorAll("span");
         if (!spans || spans.length === 0) return;
@@ -83,7 +99,7 @@ const RevealOverlay = (config: RevealConfig) => {
   const isIdling = inView && images.length === frameCount && !startMove;
   useEffect(() => {
     const element = containerRef.current;
-    if (!element || !isReady) return; // checking !element is a safeguard, isReady should prevent this.
+    if (!element || !isReady || !active) return; // checking !element is a safeguard, isReady should prevent this.
 
     const animObserver = new IntersectionObserver(
       ([entry]) => {
@@ -97,7 +113,7 @@ const RevealOverlay = (config: RevealConfig) => {
 
     animObserver.observe(element);
     return () => animObserver.disconnect();
-  }, [isReady, startThreshold]);
+  }, [isReady, active, startThreshold]);
 
   useEffect(() => {
     if (!isIdling) return;
@@ -113,7 +129,7 @@ const RevealOverlay = (config: RevealConfig) => {
   const [canvasOpacity, setCanvasOpacity] = useState(1); // Disappear at end
   // Kept across effect restarts so take-off continues from the idle loop instead of replaying the intro
   const frameRef = useRef(0);
-  const currentXRef = useRef(0);
+  const currentXRef = useRef<number | null>(null);
   useEffect(() => {
     if (images.length !== frameCount || !inView) return;
 
@@ -123,15 +139,13 @@ const RevealOverlay = (config: RevealConfig) => {
     if (!canvas || !ctx || !container) return; // safeguard, won't occur because the element is literally inView
 
     const FRAME_INTERVAL = 1000 / fps;
-    const screenW = window.innerWidth;
-    const startX = 0;
-    const endX = screenW + canvasWidth;
+    const endX = screenRight + canvasWidth;
     const moveSpeed = (endX - startX) / (moveDurationMs / FRAME_INTERVAL);
 
     const idleFrames = { end: 13, loopStart: 10 };
     const moveFrames = { start: 16, end: frameCount, loopStart: 41 };
 
-    let currentX = currentXRef.current;
+    let currentX = currentXRef.current ?? startX;
     let frame = frameRef.current;
 
     const interval = setInterval(() => {
@@ -174,7 +188,7 @@ const RevealOverlay = (config: RevealConfig) => {
 
     return () => clearInterval(interval);
 
-  }, [images, inView, startMove, canvasWidth, canvasHeight, moveDurationMs, yShift])
+  }, [images, inView, startMove, canvasWidth, canvasHeight, moveDurationMs, yShift, startX, screenRight])
 
 
   // 5. Scramble underlying text
@@ -243,12 +257,12 @@ const RevealOverlay = (config: RevealConfig) => {
   }, [visibleMask, text]);
 
   return (
-    <div className="relative w-full flex items-center justify-center">
+    <div ref={rowRef} className="relative w-full flex items-center justify-center">
       {/* Scramble text */}
       <h1
         ref={textRef}
         style={{ fontSize: `${fontSize}px` }}
-        className={`matrix-text font-mono tracking-wider z-10`}
+        className={`matrix-text font-mono tracking-wider whitespace-nowrap z-10`}
       >
         {displayText.split("").map((char, i) => (
           <span
@@ -283,7 +297,7 @@ const RevealOverlay = (config: RevealConfig) => {
           position: "absolute",
           top: "50%",
           left: 0,
-          transform: `translate(0, ${yShift}%)`,
+          transform: `translate(${startX}px, ${yShift}%)`,
           width: `${canvasWidth}px`,
           height: `${canvasHeight}px`,
           zIndex: 20,

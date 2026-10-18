@@ -4,3 +4,6 @@ export function navHeight() {
     const value = root.getPropertyValue("--nav-h").trim();
     return value.endsWith("rem") ? parseFloat(value) * parseFloat(root.fontSize) : parseFloat(value);
 }
+
+// The full-size trail map's gap from the window's edges, below the navbar
+export const stageInset = () => (window.innerWidth >= 768 ? 24 : 12);

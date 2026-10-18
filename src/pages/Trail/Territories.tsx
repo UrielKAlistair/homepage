@@ -1,24 +1,24 @@
-import { memo, useId, useLayoutEffect, useMemo, useRef } from "react";
-import { useStore } from "@xyflow/react";
+import { memo, useContext, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useStore, useStoreApi } from "@xyflow/react";
 import { HexPattern } from "@/components/hexgrid";
-import { territoryCellRadius as radius } from "./TrailLayout";
-import { buildGrid, cellPaint, computeLabels, computeOwners, gridExtent, hexPoints, labelColors } from "./territoryGrid";
-import type { Grid, TerritoryChapter } from "./territoryGrid";
+import { territoryCellRadius as radius, territoryReach } from "./TrailLayout";
+import { buildGrid, computeLabels, computeOwners, fabric, fabricOpacity, gridExtent, labelColors } from "./territoryGrid";
+import type { TerritoryChapter } from "./territoryGrid";
+import { TerritoryRenderer } from "./territoryRenderer";
+import { TrailIntroTiming, cellSpawn } from "./trailIntro";
 
-// The hex fabric behind the trail, and the territories coloured into it (see territoryGrid.ts).
-
-// The bare fabric: every cell, faintly, everywhere. It fades out when zoomed far out, where the
-// cells would shrink to a few pixels and shimmer.
-const fabricStroke = "rgba(255, 255, 255, 0.055)";
-const fabricOpacity = (zoom: number) => Math.min(1, Math.max(0, (zoom - 0.2) / 0.25));
+// The hex fabric behind the trail, and the territories coloured into it (see territoryGrid.ts),
+// drawn on a WebGL canvas (territoryRenderer.ts); the domain labels sit above it as SVG text.
+// Without WebGL the map shows the bare fabric only, as an SVG pattern.
 
 const transformSelector = (state: { transform: [number, number, number] }) => state.transform;
 
 const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
-    const [tx, ty, zoom] = useStore(transformSelector);
-    const fabricId = `trail-fabric-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-    const layerRef = useRef<SVGGElement>(null);
-    const applied = useRef<{ grid: Grid | null; paints: string[] }>({ grid: null, paints: [] }); // the paint each cell was last given
+    const intro = useContext(TrailIntroTiming);
+    const store = useStoreApi();
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const rendererRef = useRef<TerritoryRenderer | null>(null);
+    const [webgl, setWebgl] = useState(true);
 
     // The grid only changes when chapters move into a new block of cells
     const gridKey = chapters.length === 0 ? "" : Object.values(gridExtent(chapters)).flat().join(",");
@@ -27,52 +27,59 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
         const [c0, c1, r0, r1] = gridKey.split(",").map(Number);
         return buildGrid({ cols: [c0, c1], rows: [r0, r1] });
     }, [gridKey]);
-
-    // The same element list for the same grid, so React skips the cells entirely on a drag frame
-    const cellElements = useMemo(
-        () =>
-            grid?.cells.map((cell) => (
-                <polygon key={cell.key} points={hexPoints} transform={`translate(${cell.x} ${cell.y})`} className="trail-territory-cell" />
-            )),
-        [grid]
-    );
-
     const looks = useMemo(() => (grid ? computeOwners(grid, chapters) : null), [grid, chapters]);
     const labels = useMemo(() => (grid && looks ? computeLabels(grid, looks, chapters) : []), [grid, looks, chapters]);
 
-    // Colours are set directly on the cells that changed, so a drag doesn't re-render ~2000 elements
-    useLayoutEffect(() => {
-        const layer = layerRef.current;
-        if (!layer || !looks) return;
-        // A new grid means new cells: everything is painted afresh
-        if (applied.current.grid !== grid) applied.current = { grid, paints: [] };
-        const { paints } = applied.current;
-        const polygons = layer.children as HTMLCollectionOf<SVGPolygonElement>;
-        looks.forEach((look, i) => {
-            const polygon = polygons[i];
-            const signature = `${look.color ?? ""}${look.level}${look.frontier ? "f" : ""}`;
-            if (paints[i] === signature) return;
-            paints[i] = signature;
-            if (!look.color) {
-                polygon.style.fill = "transparent";
-                polygon.style.stroke = "transparent";
-                return;
-            }
-            const paint = cellPaint(look.color, look);
-            polygon.style.fill = paint.fill;
-            polygon.style.stroke = paint.stroke;
+    // Drawing in, each owned cell starts after its chapter's territory, later the farther it is
+    // from the chapter, give or take a little
+    const spawn = useMemo(() => {
+        if (!intro || !grid || !looks) return null;
+        return Float32Array.from(grid.cells, (cell, i) => {
+            const look = looks[i];
+            if (!look.owner) return 0;
+            const jitter = ((Math.imul(cell.col, 73856093) ^ Math.imul(cell.row, 19349663)) >>> 0) / 2 ** 32;
+            return intro.territory(look.owner) + cellSpawn.spread * (look.distance / territoryReach) + cellSpawn.jitter * jitter;
         });
-    }, [grid, looks]);
+    }, [intro, grid, looks]);
+
+    // The renderer lives as long as the canvas, and follows the camera without re-rendering React
+    useLayoutEffect(() => {
+        const renderer = TerritoryRenderer.create(canvasRef.current!);
+        if (!renderer) {
+            setWebgl(false);
+            return;
+        }
+        rendererRef.current = renderer;
+        const follow = ({ transform: [x, y, zoom] }: { transform: [number, number, number] }) => renderer.setCamera({ x, y, zoom });
+        follow(store.getState());
+        const unsubscribe = store.subscribe(follow);
+        return () => {
+            unsubscribe();
+            renderer.destroy();
+            rendererRef.current = null;
+        };
+    }, [store]);
+
+    useLayoutEffect(() => {
+        if (grid && looks) rendererRef.current?.paint(grid, looks, spawn);
+    }, [grid, looks, spawn]);
+
+    useLayoutEffect(() => rendererRef.current?.setClock(intro ? intro.elapsed : null), [intro]);
 
     return (
-        <svg className="pointer-events-none absolute inset-0 h-full w-full" style={{ zIndex: 0 }} aria-hidden="true">
-            <defs>
-                {/* Lines stay one screen pixel wide at every zoom */}
-                <HexPattern id={fabricId} radius={radius} transform={`translate(${tx} ${ty}) scale(${zoom})`} stroke={fabricStroke} strokeWidth={1 / zoom} />
-            </defs>
-            <rect width="100%" height="100%" fill={`url(#${fabricId})`} opacity={fabricOpacity(zoom)} />
+        <>
+            {webgl ? <canvas ref={canvasRef} className={`${layer} ${intro ? "ti-fade" : ""}`} style={{ zIndex: 0 }} aria-hidden="true" /> : <FabricFallback />}
+            {webgl && <TerritoryLabels labels={labels} />}
+        </>
+    );
+};
+
+const TerritoryLabels = ({ labels }: { labels: ReturnType<typeof computeLabels> }) => {
+    const [tx, ty, zoom] = useStore(transformSelector);
+    const intro = useContext(TrailIntroTiming);
+    return (
+        <svg className={`${layer} ${intro ? "ti-fade" : ""}`} style={{ zIndex: 0, ...(intro ? { animationDelay: `${intro.labels}s` } : {}) }} aria-hidden="true">
             <g transform={`translate(${tx} ${ty}) scale(${zoom})`}>
-                <g ref={layerRef}>{cellElements}</g>
                 {labels.map((label) => (
                     <text key={label.color} x={label.x} y={label.y} fill={labelColors[label.color]} className="trail-territory-label">
                         {label.text}
@@ -82,5 +89,24 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
         </svg>
     );
 };
+
+// The bare fabric as an SVG pattern, for browsers without WebGL
+const fabricStroke = `rgba(${fabric.rgb.join(", ")}, ${fabric.alpha})`;
+const FabricFallback = () => {
+    const [tx, ty, zoom] = useStore(transformSelector);
+    const intro = useContext(TrailIntroTiming);
+    const fabricId = `trail-fabric-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+    return (
+        <svg className={`${layer} ${intro ? "ti-fade" : ""}`} style={{ zIndex: 0 }} aria-hidden="true">
+            <defs>
+                {/* Lines stay one screen pixel wide at every zoom */}
+                <HexPattern id={fabricId} radius={radius} transform={`translate(${tx} ${ty}) scale(${zoom})`} stroke={fabricStroke} strokeWidth={1 / zoom} />
+            </defs>
+            <rect width="100%" height="100%" fill={`url(#${fabricId})`} opacity={fabricOpacity(zoom)} />
+        </svg>
+    );
+};
+
+const layer = "pointer-events-none absolute inset-0 h-full w-full";
 
 export default memo(Territories);

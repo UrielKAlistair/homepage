@@ -1,17 +1,17 @@
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { Handle, Position, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
-import type { Node, NodeProps } from "@xyflow/react";
-import { ArrowUpRight, Minus } from "lucide-react";
+import { BaseEdge, Handle, Position, getBezierPath, useReactFlow } from "@xyflow/react";
+import type { Edge, EdgeProps, Node, NodeProps } from "@xyflow/react";
+import { ArrowUpRight } from "lucide-react";
 import type { TrailColor } from "./TrailData";
-import { chapterSize, circleSize, panelHeaderHeight } from "./TrailLayout";
+import { panelHeaderHeight } from "./TrailLayout";
 import { TrailActions, chapterColors } from "./TrailTheme";
+import { TrailIntroTiming } from "./trailIntro";
 import { notebooks, notesPath } from "../Notes/notesIndex";
 
 export type ChapterNodeData = {
     title: string;
     color: TrailColor;
-    open: boolean;
     topicCount: number;
     notes?: string;
 };
@@ -20,53 +20,38 @@ export type TopicNodeData = {
     title: string;
     color: TrailColor;
     direction: "DOWN" | "RIGHT";
+    index: number; // in its chapter's list
     notes?: string;
-    leaving?: boolean;
 };
 
 // Notes open in a new tab, so the visitor's arrangement of the trail stays as it was.
 // A slug with no notebook behind it (yet) shows nothing.
 const notesLink = (slug?: string) => (slug && notebooks[slug] ? { href: notesPath(slug), target: "_blank", rel: "noopener" } : null);
 
-// Chapters drag by this class only: anywhere on the open panel, or the circle when collapsed
-export const dragHandleClass = "trail-drag-handle";
-
-// Collapsed, edges meet the circle; open, they meet the panel at its header line
-const circleInset = (chapterSize.width - circleSize) / 2;
-
+// A chapter is a frosted sheet: whatever it's dragged over shows blurred through it.
+// Edges meet the middle of its sides.
 export const ChapterNode = ({ id, data }: NodeProps<Node<ChapterNodeData>>) => {
     const colors = chapterColors[data.color];
-    const { focusChapter, toggleChapter, flyToChapter } = useContext(TrailActions);
-    const updateNodeInternals = useUpdateNodeInternals();
+    const { focusChapter, flyToChapter } = useContext(TrailActions);
     const notes = notesLink(data.notes);
-
-    // Handles move when the node opens or closes, so React Flow has to re-measure them
-    useEffect(() => {
-        updateNodeInternals(id);
-    }, [id, data.open, updateNodeInternals]);
-
-    const handleTop = data.open ? panelHeaderHeight / 2 : circleSize / 2;
-    const handleInset = data.open ? 0 : circleInset;
+    const intro = useContext(TrailIntroTiming);
 
     return (
         <div className="relative h-full w-full" onPointerDownCapture={() => focusChapter(id)}>
-            <Handle id="in" type="target" position={Position.Left} className="!invisible" style={{ top: handleTop, left: handleInset }} />
-            <Handle id="out" type="source" position={Position.Right} className="!invisible" style={{ top: handleTop, right: handleInset }} />
+            {/* React Flow measures where handles sit on screen, so they stay out of anything that moves */}
+            <Handle id="in" type="target" position={Position.Left} className="!invisible" />
+            <Handle id="out" type="source" position={Position.Right} className="!invisible" />
 
-            {/* Open: a frosted sheet; whatever it's dragged over shows blurred through it */}
             <div
-                className={`${dragHandleClass} absolute inset-0 cursor-grab overflow-hidden rounded-3xl border bg-card/80 active:cursor-grabbing shadow-[0_30px_80px_-24px_rgba(0,0,0,0.9)] backdrop-blur-md transition-opacity ${colors.panel} ${data.open ? "opacity-100 delay-100 duration-300" : "pointer-events-none opacity-0 duration-150"}`}
+                className={`absolute inset-0 cursor-grab overflow-hidden rounded-3xl border bg-card/80 active:cursor-grabbing shadow-[0_30px_80px_-24px_rgba(0,0,0,0.9)] backdrop-blur-md ${colors.panel} ${intro ? "ti-rise" : ""}`}
+                style={intro ? { animationDelay: `${intro.chapter(id)}s` } : undefined}
             >
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b to-transparent to-60% ${colors.tint}`} />
-                <div
-                    className="relative flex items-center gap-3 border-b border-white/[0.06] px-5"
-                    style={{ height: panelHeaderHeight }}
-                >
+                <div className="relative flex items-center gap-3 border-b border-white/[0.06] px-5" style={{ height: panelHeaderHeight }}>
                     <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors.dot}`} />
                     <button
                         type="button"
                         onClick={() => flyToChapter(id)}
-                        tabIndex={data.open ? 0 : -1}
                         title="Zoom to this chapter"
                         className="truncate text-base font-semibold text-white decoration-white/30 underline-offset-4 hover:underline"
                     >
@@ -77,21 +62,11 @@ export const ChapterNode = ({ id, data }: NodeProps<Node<ChapterNodeData>>) => {
                             {data.topicCount} {data.topicCount === 1 ? "topic" : "topics"}
                         </span>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => toggleChapter(id)}
-                        aria-label={`Collapse ${data.title}`}
-                        tabIndex={data.open ? 0 : -1}
-                        className="nodrag ml-auto shrink-0 rounded-full p-1.5 text-white/45 transition-colors hover:bg-white/10 hover:text-white"
-                    >
-                        <Minus className="h-4 w-4" />
-                    </button>
                 </div>
                 {data.topicCount === 0 &&
                     (notes ? (
                         <a
                             {...notes}
-                            tabIndex={data.open ? 0 : -1}
                             className="relative mx-5 mt-6 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5 text-sm text-white/80 transition-colors hover:border-white/35 hover:text-white"
                         >
                             Read the notes
@@ -100,25 +75,6 @@ export const ChapterNode = ({ id, data }: NodeProps<Node<ChapterNodeData>>) => {
                     ) : (
                         <p className="relative px-5 pt-6 text-sm text-white/40">Notes for this chapter are on their way.</p>
                     ))}
-            </div>
-
-            {/* Collapsed: circle and label at the top centre, where the panel's header was.
-                The fades are staggered with the panel's so the two never overlap for long. */}
-            <div
-                className={`group absolute left-1/2 top-0 flex -translate-x-1/2 flex-col items-center transition-opacity ${data.open ? "pointer-events-none opacity-0 duration-100" : "opacity-100 delay-200 duration-200"}`}
-                style={{ width: chapterSize.width }}
-            >
-                <button
-                    type="button"
-                    onClick={() => toggleChapter(id)}
-                    aria-label={`Open ${data.title}`}
-                    tabIndex={data.open ? -1 : 0}
-                    className={`${dragHandleClass} cursor-pointer rounded-full border-2 transition-transform duration-200 group-hover:scale-110 ${colors.circle}`}
-                    style={{ width: circleSize, height: circleSize }}
-                />
-                <p className="mt-3 px-1 text-center text-sm font-medium leading-snug text-white/80 transition-colors group-hover:text-white">
-                    {data.title}
-                </p>
             </div>
         </div>
     );
@@ -129,6 +85,7 @@ const dragThreshold = 4;
 
 export const TopicNode = ({ data, parentId }: NodeProps<Node<TopicNodeData>>) => {
     const notes = notesLink(data.notes);
+    const intro = useContext(TrailIntroTiming);
     const { focusChapter, moveChapterBy, saveArrangement } = useContext(TrailActions);
     const { getZoom } = useReactFlow();
 
@@ -164,24 +121,57 @@ export const TopicNode = ({ data, parentId }: NodeProps<Node<TopicNodeData>>) =>
         window.addEventListener("pointercancel", end);
     };
 
-    // Topics with notes are links; the rest are plain labels for now
+    // Topics with notes are links; the rest are plain labels for now. The handles sit beside the
+    // body, not in it: React Flow measures them on screen, and the body animates.
     const Body = notes ? "a" : "div";
     return (
-        <Body
-            {...notes}
-            title={notes ? `Read the notes on ${data.title}` : undefined}
-            onPointerDown={startDrag}
-            draggable={false}
-            className={`nopan flex h-full w-full touch-none select-none items-center gap-2.5 rounded-xl border px-3.5 text-sm transition-colors ${notes ? "group cursor-pointer border-white/15 bg-white/[0.06] text-white/90 hover:border-white/40 hover:bg-white/[0.12] hover:text-white" : "cursor-grab border-white/[0.07] bg-white/[0.025] text-white/60 active:cursor-grabbing"} ${data.leaving ? "animate-out fade-out-0 zoom-out-95 fill-mode-forwards duration-150" : "animate-in fade-in-0 zoom-in-95 duration-300"}`}
-        >
+        <>
             {/* Links across chapters run left to right; links inside a chapter follow its own direction */}
             <Handle id="in" type="target" position={Position.Left} className="!invisible" />
             <Handle id="flow-in" type="target" position={data.direction === "DOWN" ? Position.Top : Position.Left} className="!invisible" />
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${chapterColors[data.color].dot}`} />
-            <span className="truncate">{data.title}</span>
-            {notes && <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-white/45 transition-colors group-hover:text-white" />}
             <Handle id="out" type="source" position={Position.Right} className="!invisible" />
             <Handle id="flow-out" type="source" position={data.direction === "DOWN" ? Position.Bottom : Position.Right} className="!invisible" />
-        </Body>
+            <Body
+                {...notes}
+                title={notes ? `Read the notes on ${data.title}` : undefined}
+                onPointerDown={startDrag}
+                draggable={false}
+                style={intro && parentId ? { animationDelay: `${intro.topic(parentId, data.index)}s` } : undefined}
+                className={`nopan flex h-full w-full touch-none select-none items-center gap-2.5 rounded-xl border px-3.5 text-sm transition-colors ${notes ? "group cursor-pointer border-white/15 bg-white/[0.06] text-white/90 hover:border-white/40 hover:bg-white/[0.12] hover:text-white" : "cursor-grab border-white/[0.07] bg-white/[0.025] text-white/60 active:cursor-grabbing"} ${intro ? "ti-fade" : ""}`}
+            >
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${chapterColors[data.color].dot}`} />
+                <span className="truncate">{data.title}</span>
+                {notes && <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-white/45 transition-colors group-hover:text-white" />}
+            </Body>
+        </>
+    );
+};
+
+// A prerequisite arrow: a bezier curve with its own arrowhead. While the map draws itself in,
+// the line draws from its start (pathLength 1 makes the dash pattern a fraction of the line)
+// and the arrowhead appears as the line arrives.
+const arrowColor = "rgba(255, 255, 255, 0.32)";
+export const TrailEdge = ({ source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps<Edge>) => {
+    const intro = useContext(TrailIntroTiming);
+    const [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    const delay = intro ? intro.edge(source.split("/")[0], target.split("/")[0]) : 0;
+    // The arrowhead points the way the line arrives: down into a topic below, otherwise right
+    const angle = targetPosition === Position.Top ? 90 : 0;
+    return (
+        <>
+            <BaseEdge
+                path={path}
+                pathLength={intro ? 1 : undefined}
+                className={intro ? "ti-draw" : undefined}
+                style={{ stroke: arrowColor, strokeWidth: 1.25, ...(intro ? { animationDelay: `${delay}s` } : {}) }}
+            />
+            <path
+                d="M -9 -4.5 L 0 0 L -9 4.5 Z"
+                transform={`translate(${targetX} ${targetY}) rotate(${angle})`}
+                fill={arrowColor}
+                className={intro ? "ti-fade" : undefined}
+                style={intro ? { animationDelay: `${delay + 0.55}s` } : undefined}
+            />
+        </>
     );
 };

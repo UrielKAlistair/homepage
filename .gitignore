@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Delegate channel, briefs and test tools (not part of the site)
+research/

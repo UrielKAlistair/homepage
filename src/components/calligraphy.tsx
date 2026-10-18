@@ -2,14 +2,17 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { createTimeline, svg as anime, type Timeline } from "animejs";
 import { rewindMs } from "@/lib/playback";
 
-// Writes out an SVG of outlined script letters (see scripts/text-to-calligraphy-svg.mjs): each
-// letter's outline is traced, then filled. The SVGs list letters right to left, so the last
-// path is drawn first and the word is written left to right.
+// Writes out an SVG of outlined script letters (see scripts/text-to-calligraphy-svg.mjs) in two
+// waves: the outlines start one after another across the word over sweepMs, whatever its length,
+// and each letter fills once its outline is traced. The SVGs list letters in reverse text order,
+// so the last path is drawn first and the word is written left to right.
 // The markup is bundled, so the word is on the page from the first frame (blank until written).
 // The writing runs only while `active`; pausing and resuming steps back by rewindMs.
+// onWritten fires halfway through the last letter's fill, when what is left is too faint to hold
+// back whatever comes next; onFinished fires at the end.
 
 const startDelay = 200;
-const letterStagger = 40;
+const sweepMs = 1200;
 const traceMs = 1000;
 const fillMs = 1000;
 
@@ -17,13 +20,16 @@ type CalligraphyProps = {
     svg: string; // the SVG's markup
     active?: boolean;
     complete?: boolean; // already written this visit: show it finished
+    onWritten?: () => void;
     onFinished?: () => void;
     className?: string;
 };
 
-function Calligraphy({ svg, active = true, complete = false, onFinished, className = "" }: CalligraphyProps) {
+function Calligraphy({ svg, active = true, complete = false, onWritten, onFinished, className = "" }: CalligraphyProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const timeline = useRef<Timeline | null>(null);
+    const onWrittenRef = useRef(onWritten);
+    onWrittenRef.current = onWritten;
     const onFinishedRef = useRef(onFinished);
     onFinishedRef.current = onFinished;
     const completeAtMount = useRef(complete);
@@ -41,6 +47,7 @@ function Calligraphy({ svg, active = true, complete = false, onFinished, classNa
             svgEl.style.height = "100%";
         }
         const paths = Array.from(container.querySelectorAll("path"));
+        const letterStagger = sweepMs / Math.max(1, paths.length - 1);
         const tl = createTimeline({ autoplay: false, onComplete: () => onFinishedRef.current?.() });
         paths.forEach((path, index) => {
             path.setAttribute("stroke", "currentColor");
@@ -50,6 +57,7 @@ function Calligraphy({ svg, active = true, complete = false, onFinished, classNa
             tl.add(anime.createDrawable(path), { draw: ["0 0", "0 1"], duration: traceMs, ease: "inOutQuad" }, at);
             tl.add(path, { fillOpacity: [0, 1], duration: fillMs, ease: "inOutQuad" }, at + traceMs);
         });
+        tl.call(() => onWrittenRef.current?.(), tl.duration - fillMs / 2);
         if (completeAtMount.current) tl.seek(tl.duration, true);
         else {
             tl.seek(0);

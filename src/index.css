@@ -69,27 +69,9 @@
   }
 }
 
-/* Trail graph: edges to topics fade in with their topics */
-.react-flow__edge.trail-topic-edge path {
-  animation: trail-fade-in 300ms ease-out both;
-}
-
 /* Soft prerequisites are dotted */
 .react-flow__edge.trail-soft-edge .react-flow__edge-path {
   stroke-dasharray: 4 5;
-}
-
-@keyframes trail-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-/* Trail territories: cells fade between owners as chapters move */
-.trail-territory-cell {
-  fill: transparent;
-  stroke-width: 1;
-  transition: fill 200ms ease, stroke 200ms ease;
 }
 
 .trail-territory-label {
@@ -122,20 +104,19 @@
 .note-html-output th,
 .note-html-output td { border: 1px solid rgba(255, 255, 255, 0.1); padding: 0.25rem 0.6rem; text-align: right; }
 
-/* Home: the trail preview grows in; everything waits, paused, until its panel is reached */
-.trail-preview .tp-fade { animation: tp-fade 500ms ease-out both; }
-.trail-preview .tp-rise { animation: tp-rise 550ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-box: view-box; }
-.trail-preview .tp-draw { stroke-dasharray: 1; animation: tp-draw 700ms ease-in-out both; }
-.trail-preview:not(.playing) * { animation-play-state: paused; }
-@keyframes tp-fade { from { opacity: 0; } }
-@keyframes tp-rise { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
-@keyframes tp-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.trail-preview.done * { animation: none !important; }
-@media (prefers-reduced-motion: reduce) {
-  .trail-preview * { animation: none !important; }
-}
+/* The trail map drawing itself in on the home page (delays from trailIntro.ts). Paused unless
+   the stage marks it playing; .ti-clock lasts exactly as long, so its end is the intro's end. */
+.ti-rise { animation: ti-rise 550ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: 50% 0; }
+.ti-fade { animation: ti-fade 500ms ease-out both; }
+.ti-draw { stroke-dasharray: 1; animation: ti-draw 700ms ease-in-out both; }
+.ti-clock { position: absolute; animation-name: ti-clock; animation-timing-function: linear; animation-fill-mode: both; }
+.trail-intro:not(.playing) :is(.ti-rise, .ti-fade, .ti-draw, .ti-clock) { animation-play-state: paused; }
+@keyframes ti-fade { from { opacity: 0; } }
+@keyframes ti-rise { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
+@keyframes ti-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes ti-clock { to { visibility: hidden; } }
 
-/* Cards and the trail flying between pages take a little longer than the default crossfade */
+/* Cards flying between pages take a little longer than the default crossfade */
 ::view-transition-group(*) { animation-duration: 600ms; animation-timing-function: cubic-bezier(0.3, 0.7, 0.2, 1); }
 
 /* Home: no scrollbar (the section dots show position instead) */

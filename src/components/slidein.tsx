@@ -6,6 +6,7 @@ interface SlideInProps {
   duration?: number;
   className?: string;
   threshold?: number;
+  active?: boolean; // until then, it doesn't watch for coming on screen
 }
 
 const SlideIn = ({
@@ -14,13 +15,14 @@ const SlideIn = ({
   className = "",
   duration = 1000,
   threshold = 0.55,
+  active = true,
 }: SlideInProps) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
     const target = wrapperRef.current;
-    if (!target || hasAnimated) return;
+    if (!target || hasAnimated || !active) return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const observer = new IntersectionObserver(
@@ -42,7 +44,7 @@ const SlideIn = ({
         clearTimeout(timeoutId);
       }
     };
-  }, [delay, hasAnimated, threshold]);
+  }, [active, delay, hasAnimated, threshold]);
 
   return (
     <div ref={wrapperRef} className="relative overflow-hidden">

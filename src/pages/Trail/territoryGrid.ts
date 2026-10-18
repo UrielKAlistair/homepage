@@ -1,4 +1,4 @@
-import { hexCentre, hexColumnWidth, hexPoints as hexPolygon, hexRowHeight } from "@/lib/hexgrid";
+import { hexCentre, hexColumnWidth, hexRowHeight } from "@/lib/hexgrid";
 import type { TrailColor } from "./TrailData";
 import { domains } from "./TrailData";
 import { territoryCellRadius as radius, territoryReach as reach } from "./TrailLayout";
@@ -14,12 +14,12 @@ const rowHeight = hexRowHeight(radius);
 const columnWidth = hexColumnWidth(radius);
 const gridBlock = 8; // the grid grows in blocks of cells, so dragging rarely rebuilds it
 
-export const rgb: Record<TrailColor, string> = {
-    orange: "251, 146, 60",
-    red: "248, 113, 113",
-    blue: "96, 165, 250",
-    green: "52, 211, 153",
-    white: "226, 232, 240",
+const rgb: Record<TrailColor, [number, number, number]> = {
+    orange: [251, 146, 60],
+    red: [248, 113, 113],
+    blue: [96, 165, 250],
+    green: [52, 211, 153],
+    white: [226, 232, 240],
 };
 // Solid but muted, so labels read as part of the background
 export const labelColors: Record<TrailColor, string> = {
@@ -32,7 +32,6 @@ export const labelColors: Record<TrailColor, string> = {
 const labelFontSize = 13;
 const labelCharWidth = labelFontSize * 0.9; // glyph plus 0.3em tracking, a slight overestimate
 
-export const hexPoints = hexPolygon(radius);
 const cellCentre = (col: number, row: number) => hexCentre(col, row, radius);
 
 // The six neighbours of a flat-topped cell in "odd columns shifted down" offset coordinates
@@ -114,12 +113,20 @@ export function computeOwners(grid: Grid, chapters: TerritoryChapter[]): CellLoo
     return looks;
 }
 
-// Stronger near a chapter and along a territory's border
+// An owned cell's colour, with the opacities of its fill and outline: stronger near a chapter
+// and along a territory's border
 export function cellPaint(color: TrailColor, look: CellLook) {
-    const fillOpacity = 0.012 + look.level * 0.012 + (look.frontier ? 0.012 : 0);
-    const strokeOpacity = 0.05 + look.level * 0.03 + (look.frontier ? 0.06 : 0);
-    return { fill: `rgba(${rgb[color]}, ${fillOpacity})`, stroke: `rgba(${rgb[color]}, ${strokeOpacity})` };
+    return {
+        rgb: rgb[color],
+        fill: 0.012 + look.level * 0.012 + (look.frontier ? 0.012 : 0),
+        stroke: 0.05 + look.level * 0.03 + (look.frontier ? 0.06 : 0),
+    };
 }
+
+// The bare fabric: every cell's outline, faintly, everywhere. It fades out when zoomed far out,
+// where the cells would shrink to a few pixels and shimmer.
+export const fabric = { rgb: [255, 255, 255], alpha: 0.055 } as const;
+export const fabricOpacity = (zoom: number) => Math.min(1, Math.max(0, (zoom - 0.2) / 0.25));
 
 // One label per domain, at the top-left of its largest connected territory, where the whole
 // label sits clear of every chapter

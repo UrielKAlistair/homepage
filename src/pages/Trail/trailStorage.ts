@@ -2,12 +2,12 @@ import type { XYPosition } from "@xyflow/react";
 
 // A visitor's own arrangement of the trail, kept in their browser only
 export type Arrangement = {
-    chapters: Record<string, XYPosition & { open: boolean }>;
+    chapters: Record<string, XYPosition>;
     order: string[]; // back to front; the last one is on top
 };
 
 const storageKey = "trail-arrangement";
-const version = 1;
+const version = 2;
 
 // Returns null when nothing is saved, storage is unavailable, or the saved chapters no longer
 // match the current ones (a fresh layout is better than a half-stale one)

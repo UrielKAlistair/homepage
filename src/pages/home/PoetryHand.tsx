@@ -4,8 +4,8 @@ import { poemCardTransition, poems } from "../poems";
 
 // The poem cards arrive as a face-down deck, then are dealt one by one into a fanned hand,
 // turning face up in the air. Hovering lifts a card, as on the Poetry page's tray. Clicking
-// opens the Poetry page: the cards gather into a deck near the left edge, sweep up and over to
-// the tray's first slot, and are dealt down into their slots.
+// opens the Poetry page: in one tossing motion the fan closes into a deck that flies along a
+// parabola to the tray's first slot, and the cards are dealt down into their slots.
 // The deal is all or nothing: leaving the panel before it finishes cancels it, and it starts
 // over from the top next time.
 
@@ -18,40 +18,21 @@ const dealMs = 780;
 const liftShare = 0.2; // a hovered card rises by this fraction of its width
 const hoverMargin = 14; // px around a lifted card that still counts as on it
 const hoverGraceMs = 150;
-const gatherMs = 820; // the cards gliding left and gathering, starting from rest
-const sweepMs = 1250; // the gathered cards sweeping up and over to the tray's first slot
-const loopMs = gatherMs + sweepMs;
+const tossMs = 1500; // from the hand to the tray's first slot, starting and ending at rest
 const dealSlideMs = 520; // one card sliding from the deck down to its slot
 const dealGapMs = 220; // between one card leaving the deck and the next
-const flightMs = loopMs + (poems.length - 2) * dealGapMs + dealSlideMs;
-const gatherInset = 0.07; // of the screen width, from its left edge to the gathered deck's left edge
-const gatherRise = 0.08; // of the screen height, from the leftmost card up to where the deck gathers
-const trailPx = 18; // each card's distance behind the one ahead as they gather, closing to nothing
+const flightMs = tossMs + (poems.length - 2) * dealGapMs + dealSlideMs;
+const tossArc = 0.12; // of the screen height: how far the flight bows above the straight line to the slot
+const joinShare = 0.4; // of its way along, by when a card has closed onto the deck's path, its tilt gone
+const lagShare = 0.08; // of the way, each card's lag behind the one ahead at the start, closing to nothing at the slot
 const flightSampleMs = 20; // between keyframes
 
 type Point = { x: number; y: number };
 
-// Easings: slow in and out, and slow in only
+// Slow in and out
 const easeInOutSine = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
-const easeInSine = (t: number) => 1 - Math.cos((Math.PI * t) / 2);
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
-
-// A curve sampled densely enough to be walked by distance
-type Curve = { points: Point[]; lengths: number[]; total: number };
-function traced(at: (u: number) => Point, steps = 240): Curve {
-    const points = Array.from({ length: steps + 1 }, (_, k) => at(k / steps));
-    const lengths = [0];
-    for (let k = 1; k <= steps; k++) lengths.push(lengths[k - 1] + Math.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y));
-    return { points, lengths, total: lengths[steps] };
-}
-function pointAtDistance({ points, lengths, total }: Curve, distance: number): Point {
-    const d = Math.min(total, Math.max(0, distance));
-    let k = 1;
-    while (k < lengths.length - 1 && lengths[k] < d) k++;
-    const f = (d - lengths[k - 1]) / (lengths[k] - lengths[k - 1] || 1);
-    return { x: points[k - 1].x + (points[k].x - points[k - 1].x) * f, y: points[k - 1].y + (points[k].y - points[k - 1].y) * f };
-}
 
 // Where card i sits in the fanned hand, and in the deck before dealing
 function fanPose(i: number, n: number, cardWidth: number) {
@@ -93,9 +74,11 @@ function dealCard(card: HTMLElement, face: HTMLElement, i: number, n: number, ca
     return [move, turn];
 }
 
-// Where the browser's own animation puts a card's centre at each of these times (ms), read back
-// from it: the card also turns and resizes on the way, so its centre isn't simply interpolated
-function browserPath(name: string, times: number[]): Point[] {
+// Where the browser's own animation puts a card at each of these times (ms), read back from it:
+// its centre, its tilt (radians, clockwise) and the transform origin it turns about. The card
+// also turns and resizes on the way, so its centre isn't simply interpolated.
+type Pose = Point & { angle: number; origin: Point };
+function browserPath(name: string, times: number[]): Pose[] {
     const pseudo = `::view-transition-group(${name})`;
     const own = document.getAnimations().filter((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement === pseudo);
     own.forEach((animation) => animation.pause());
@@ -105,7 +88,7 @@ function browserPath(name: string, times: number[]): Point[] {
         const [originX, originY] = style.transformOrigin.split(" ").map(parseFloat);
         const matrix = new DOMMatrix(style.transform === "none" ? undefined : style.transform);
         const turned = matrix.transformPoint(new DOMPoint(parseFloat(style.width) / 2 - originX, parseFloat(style.height) / 2 - originY));
-        return { x: originX + turned.x, y: originY + turned.y };
+        return { x: originX + turned.x, y: originY + turned.y, angle: Math.atan2(matrix.b, matrix.a), origin: { x: originX, y: originY } };
     });
     own.forEach((animation) => {
         animation.currentTime = 0;
@@ -207,77 +190,58 @@ const PoetryHand = ({ active, cardWidth, complete = false, onFinished }: PoetryH
         };
     }, [dealt, active, cardWidth]);
 
-    // All four cards glide left, rising a little, to one spot near the screen's left edge,
-    // the ones further right moving faster so they arrive almost together, just behind the
-    // leftmost card (Rain). From there they sweep up and right along a quarter ellipse to the
-    // tray's first slot, the small gaps between them closing, so they arrive as one deck; then
-    // each slides down out of the deck into its own slot.
-    // The browser moves each card from hand to slot by itself, at an even pace (see flightStyle);
-    // adding, at every moment, the gap between where it puts the card and this path makes the
-    // card follow the path.
+    // One motion from the hand to the tray's first slot. The deck's path is a parabola from the
+    // hand's centre to the slot, bowing up by tossArc, walked once from rest to rest. Rain leads
+    // and each card starts a beat behind the one before; a card closes onto the path over the
+    // first joinShare of its way, straightening from its tilt in the fan, and the beats shrink so
+    // all four land together as a deck. Then each slides down out of the deck into its own slot.
+    // The browser moves and turns each card from hand to slot by itself, at an even pace (see
+    // flightStyle); adding, at every moment, the gap between where it puts the card and this
+    // path (a turn about the card's centre and a shift) makes the card follow the path.
     const flyToTray = () => {
-        const width = window.innerWidth;
         const tall = window.innerHeight;
         const names = poems.map(poemCardTransition);
         const steps = Math.ceil(flightMs / flightSampleMs);
         const times = Array.from({ length: steps + 1 }, (_, k) => (k / steps) * flightMs);
-        const straight = names.map((name) => browserPath(name, times));
-        const starts = straight.map((path) => path[0]);
-        const ends = straight.map((path) => path[steps]);
-        const deck = ends[0];
-        const gather = { x: gatherInset * width + cardWidth / 2, y: starts[0].y - gatherRise * tall };
-
-        // Leftward, curving up to meet the ellipse heading straight up
-        const approaches = starts.map((from) =>
-            traced((u) => {
-                const bend = { x: gather.x, y: from.y };
-                return {
-                    x: (1 - u) ** 2 * from.x + 2 * u * (1 - u) * bend.x + u * u * gather.x,
-                    y: (1 - u) ** 2 * from.y + 2 * u * (1 - u) * bend.y + u * u * gather.y,
-                };
-            })
-        );
-        // A quarter ellipse centred below the slot: up from the gathering spot, over, and level into the slot
-        const across = deck.x - gather.x;
-        const up = gather.y - deck.y;
-        const sweep = traced((u) => {
-            const angle = Math.PI - (u * Math.PI) / 2;
-            return { x: deck.x + across * Math.cos(angle), y: gather.y - up * Math.sin(angle) };
+        const browser = names.map((name) => browserPath(name, times));
+        const starts = browser.map((path) => path[0]);
+        const hand = { x: starts.reduce((sum, p) => sum + p.x, 0) / n, y: starts.reduce((sum, p) => sum + p.y, 0) / n };
+        const deck = browser[0][steps];
+        const deckAt = (s: number): Point => ({
+            x: hand.x + (deck.x - hand.x) * s,
+            y: hand.y + (deck.y - hand.y) * s - 4 * tossArc * tall * s * (1 - s),
         });
 
-        // How far along the way Rain is. It gathers speed from rest on the way left, keeps that
-        // speed into the sweep, picks up more, and slows to a stop at the slot: a cubic in time
-        // with the arrival speed at the start and none at the end (kept from running backwards).
-        const gatherLength = approaches[0].total;
-        const arrivalSpeed = (gatherLength * Math.PI) / (2 * gatherMs); // px/ms, at the end of easeInSine
-        const carried = Math.min(arrivalSpeed * sweepMs, 3 * sweep.total);
-        const leadDistance = (t: number) => {
-            if (t <= gatherMs) return gatherLength * easeInSine(t / gatherMs);
-            const u = clamp01((t - gatherMs) / sweepMs);
-            return gatherLength + carried * (u ** 3 - 2 * u ** 2 + u) + sweep.total * (3 * u ** 2 - 2 * u ** 3);
-        };
-
         poems.forEach((_, i) => {
-            const to = ends[i];
-            const approach = approaches[i];
-            const positionAt = (t: number): Point => {
-                if (t <= loopMs) {
-                    // Rain's progress, plus the extra way this card has to come (made up by the
-                    // time Rain gathers), less its small gap behind
-                    const distance =
-                        leadDistance(t) + (approach.total - approaches[0].total) * smoothstep(clamp01(t / gatherMs)) - trailPx * i * (1 - t / loopMs);
-                    return distance <= approach.total ? pointAtDistance(approach, distance) : pointAtDistance(sweep, distance - approach.total);
+            const start = starts[i];
+            const to = browser[i][steps];
+            // Where the card is and how it's tilted
+            const poseAt = (t: number): { point: Point; angle: number } => {
+                if (t <= tossMs) {
+                    const lead = easeInOutSine(t / tossMs);
+                    const s = Math.max(0, lead - lagShare * i * (1 - lead));
+                    const joined = smoothstep(clamp01(s / joinShare));
+                    const onPath = deckAt(s);
+                    return {
+                        point: { x: onPath.x + (start.x - hand.x) * (1 - joined), y: onPath.y + (start.y - hand.y) * (1 - joined) },
+                        angle: start.angle * (1 - joined),
+                    };
                 }
-                if (i === 0) return deck;
-                const slide = easeInOutSine(clamp01((t - loopMs - (i - 1) * dealGapMs) / dealSlideMs));
-                return { x: deck.x + (to.x - deck.x) * slide, y: deck.y + (to.y - deck.y) * slide };
+                if (i === 0) return { point: deck, angle: 0 };
+                const slide = easeInOutSine(clamp01((t - tossMs - (i - 1) * dealGapMs) / dealSlideMs));
+                return { point: { x: deck.x + (to.x - deck.x) * slide, y: deck.y + (to.y - deck.y) * slide }, angle: 0 };
             };
             const keyframes = times.map((time, k) => {
-                const point = positionAt(time);
-                const dx = point.x - straight[i][k].x;
-                const dy = point.y - straight[i][k].y;
+                const { point, angle } = poseAt(time);
+                const { x, y, angle: browserAngle, origin } = browser[i][k];
+                // The extra turn is about the transform origin, so shift the card back to the point
+                const turn = angle - browserAngle;
+                const cos = Math.cos(turn);
+                const sin = Math.sin(turn);
+                const dx = point.x - (origin.x + (x - origin.x) * cos - (y - origin.y) * sin);
+                const dy = point.y - (origin.y + (x - origin.x) * sin + (y - origin.y) * cos);
                 // Rain on top of the deck, each card under the one before
-                return { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px`, zIndex: poems.length - i };
+                return { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px`, rotate: `${turn.toFixed(4)}rad`, zIndex: n - i };
             });
             document.documentElement.animate(keyframes, { duration: flightMs, easing: "linear", pseudoElement: `::view-transition-group(${names[i]})` });
         });
