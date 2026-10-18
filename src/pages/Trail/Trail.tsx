@@ -18,14 +18,10 @@ import type { ChapterPlacement, Rect } from "./TrailLayout";
 import { clearArrangement, introHidden, loadArrangement, saveArrangement } from "./trailStorage";
 import Territories from "./Territories";
 import TrailIntro from "./TrailIntro";
-import type { TerritoryChapter } from "./territoryGrid";
 
 const trailNodeTypes = { chapter: ChapterNode, topic: TopicNode };
 const prerequisites = directPrerequisites(chapters);
 const chapterIds = chapters.map((chapter) => chapter.id);
-
-// ?territories=fixed keeps territories where the fresh layout put them instead of following drags
-const territoryMode = new URLSearchParams(window.location.search).get("territories") === "fixed" ? "fixed" : "live";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const morphMs = reduceMotion ? 0 : 450;
@@ -73,8 +69,8 @@ const chapterNode = (id: string, rect: Rect, open: boolean, zIndex: number): Nod
 };
 
 const TrailCanvas = () => {
-    // Arriving from the home page's preview, the view starts exactly as the preview showed it
     const { fitBounds, setViewport } = useReactFlow();
+    // Arriving from the home page's preview, the view starts exactly as the preview showed it
     const fromPreview = (useLocation().state as { fromPreview?: boolean } | null)?.fromPreview === true;
     const containerRef = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -82,7 +78,6 @@ const TrailCanvas = () => {
     const [order, setOrder] = useState<string[]>(chapterIds); // back to front
     const [introOpen, setIntroOpen] = useState(() => !introHidden());
 
-    const [freshTerritory, setFreshTerritory] = useState<TerritoryChapter[]>([]);
     const placements = useRef<Record<string, ChapterPlacement>>({});
     const freshBounds = useRef<Rect | null>(null);
     const animating = useRef(new Set<string>());
@@ -138,7 +133,10 @@ const TrailCanvas = () => {
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
+        let cancelled = false;
+        let zoomOut: (() => void) | undefined;
         layoutTrail(chapters, prerequisites, container.clientWidth / container.clientHeight).then((layout) => {
+            if (cancelled) return;
             placements.current = layout.placements;
             freshBounds.current = layout.bounds;
 
@@ -159,14 +157,6 @@ const TrailCanvas = () => {
             // Applied synchronously, so the first frame is complete when the home page's transition
             // captures it; rendering is paused until then, so no frame or measurement can be awaited
             flushSync(() => {
-                setFreshTerritory(
-                    chapterIds.map((id) => ({
-                        id,
-                        rect: { ...layout.placements[id].position, ...layout.placements[id].openSize },
-                        color: chapters.find((c) => c.id === id)!.color,
-                        z: 0,
-                    }))
-                );
                 setOrder(initialOrder);
                 setOpenChapters(open);
                 setNodes([...chapterNodes, ...topicNodes]);
@@ -177,12 +167,16 @@ const TrailCanvas = () => {
                 // Grown out of the home page's preview: start on its close view, then zoom out
                 // once the page has finished growing
                 showPreviewView(chapterNodes);
-                const zoomOut = () => showArea(area, zoomOutMs);
+                zoomOut = () => showArea(area, zoomOutMs);
                 if (document.startViewTransition) window.addEventListener(transitionDoneEvent, zoomOut, { once: true });
                 else zoomOut();
             }
             window.dispatchEvent(new Event(trailReadyEvent));
         });
+        return () => {
+            cancelled = true;
+            if (zoomOut) window.removeEventListener(transitionDoneEvent, zoomOut);
+        };
     }, [setNodes, showArea, showPreviewView, fromPreview]);
 
     // Moves and resizes chapters frame by frame, so their edges follow
@@ -309,7 +303,7 @@ const TrailCanvas = () => {
         [openChapters, order]
     );
 
-    const liveTerritory = useMemo(
+    const territory = useMemo(
         () =>
             nodes
                 .filter((node) => node.type === "chapter")
@@ -346,7 +340,7 @@ const TrailCanvas = () => {
                     elementsSelectable={false}
                     proOptions={{ hideAttribution: true }}
                 >
-                    <Territories chapters={territoryMode === "fixed" ? freshTerritory : liveTerritory} />
+                    <Territories chapters={territory} />
                 </ReactFlow>
 
                 <ExitButton returnTo="trail" beforeLeave={prepareExit} className="absolute left-3 top-3" />

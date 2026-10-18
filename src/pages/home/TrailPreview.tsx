@@ -3,7 +3,7 @@ import { rewindMs } from "@/lib/playback";
 import { HexPattern } from "@/components/hexgrid";
 import { hexPoints as hexPolygon } from "@/lib/hexgrid";
 import { chapters } from "../Trail/TrailData";
-import { boundsOf, chapterSize, circleSize, directPrerequisites, layoutTrail, panelHeaderHeight, previewFraming, territoryCellRadius, territoryReach, visibleArea, visibleEdges, withTerritory } from "../Trail/TrailLayout";
+import { chapterSize, circleSize, directPrerequisites, layoutTrail, panelHeaderHeight, previewFraming, territoryCellRadius, territoryReach, visibleArea, visibleEdges } from "../Trail/TrailLayout";
 import { loadArrangement } from "../Trail/trailStorage";
 import type { Rect, Size } from "../Trail/TrailLayout";
 import { buildGrid, cellPaint, computeLabels, computeOwners, gridExtent, labelColors, rgb } from "../Trail/territoryGrid";
@@ -89,8 +89,8 @@ async function drawTrail(canvas: Size): Promise<Drawing> {
     const territory = chapters.map((c) => ({ id: c.id, rect: chapterRects.get(c.id)!, color: c.color, z: stacking.indexOf(c.id) }));
     const grid = buildGrid(gridExtent(territory));
     const looks = computeOwners(grid, territory);
-    const cells = grid.cells.flatMap((cell) => {
-        const look = looks.get(cell.key)!;
+    const cells = grid.cells.flatMap((cell, i) => {
+        const look = looks[i];
         if (!look.color || !look.owner) return [];
         const delay = arrival.get(look.owner)! + 0.1 + (look.distance / territoryReach) * spreadTime;
         return [{ key: cell.key, x: cell.x, y: cell.y, ...cellPaint(look.color, look), delay }];

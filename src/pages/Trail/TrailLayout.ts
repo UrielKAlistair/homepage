@@ -1,5 +1,6 @@
-import ELK from "elkjs/lib/elk.bundled.js";
-import type { ElkNode } from "elkjs/lib/elk.bundled.js";
+import ELK from "elkjs/lib/elk-api.js";
+import type { ElkNode } from "elkjs/lib/elk-api.js";
+import elkWorkerUrl from "elkjs/lib/elk-worker.min.js?url";
 import type { Edge, Node, XYPosition } from "@xyflow/react";
 import type { ChapterDoc, TrailColor } from "./TrailData";
 import type { TopicNodeData } from "./NodeTypes";
@@ -11,6 +12,10 @@ const topicSize = { width: 168, height: 44 };
 export const panelHeaderHeight = 64;
 const panelPadding = 28;
 const emptyPanelSize = { width: 300, height: 150 };
+
+// The home page's preview frames the chapters above the Physics row (see previewFraming);
+// this zooms it out from that: 1 fits them exactly, 1.2 shows 20% more of the map
+const previewZoomOut = 1.15;
 
 // Territory geometry, shared by the territory layer and the camera
 export const territoryCellRadius = 22; // circumradius of a flat-topped hex cell, in flow units
@@ -52,8 +57,7 @@ const resetButtonClearance = 60; // top padding when starting from the top-left,
 export type Viewport = { x: number; y: number; zoom: number };
 
 // How the Trail page shows an area on a canvas of this size: all of it, if it can be read that
-// small; otherwise at the smallest readable zoom, starting from its left edge. The home page's
-// preview shows exactly this view, so entering and leaving the Trail is one continuous zoom.
+// small; otherwise at the smallest readable zoom, starting from its left edge
 export function framing(area: Rect, canvas: Size): Viewport {
     const fitZoom = Math.min((canvas.width - viewPadding * 2) / area.width, (canvas.height - viewPadding * 2) / area.height);
     if (fitZoom >= minReadableZoom()) {
@@ -70,8 +74,8 @@ export function framing(area: Rect, canvas: Size): Viewport {
 }
 
 // The home page's preview: the map from its top-left corner down to the territory of the lowest
-// chapter above the Physics row; Physics is left for the Trail itself to reveal. Entering the Trail starts on this
-// view and zooms out to `framing`.
+// chapter above the Physics row; Physics is left for the Trail itself to reveal. Entering the
+// Trail starts on this view and zooms out to `framing`.
 const previewHorizonColor: TrailColor = "blue";
 export function previewFraming(chapters: { rect: Rect; color: TrailColor }[], canvas: Size): Viewport {
     const area = withTerritory(boundsOf(chapters.map((c) => c.rect)));
@@ -79,7 +83,8 @@ export function previewFraming(chapters: { rect: Rect; color: TrailColor }[], ca
     const above = chapters.filter((c) => c.rect.y + c.rect.height < physicsTop).map((c) => c.rect.y + c.rect.height + territoryReach);
     const horizon = above.length ? Math.max(...above) : area.y + area.height;
     // Physics dragged up near the top would leave a sliver: show the whole map then
-    const height = horizon - area.y > area.height * 0.3 ? horizon - area.y : area.height;
+    const fitted = horizon - area.y > area.height * 0.3 ? horizon - area.y : area.height;
+    const height = Math.min(area.height, fitted * previewZoomOut);
     const zoom = canvas.height / height;
     const spare = Math.max(0, canvas.width / zoom - area.width); // a view wider than the map is centred on it
     return { x: -(area.x - spare / 2) * zoom, y: -area.y * zoom, zoom };
@@ -93,9 +98,10 @@ export const visibleArea = (view: Viewport, canvas: Size): Rect => ({
     height: canvas.height / view.zoom,
 });
 
-const elk = new ELK();
+// The layout engine is large and slow to start, so it runs in a worker, off the page's main thread
+const elk = new ELK({ workerUrl: elkWorkerUrl });
 
-export const topicNodeId = (chapterId: string, topicId: string) => `${chapterId}/${topicId}`;
+const topicNodeId = (chapterId: string, topicId: string) => `${chapterId}/${topicId}`;
 
 // ---------------------------------------------------------------------------------------------
 // Prerequisites
@@ -185,7 +191,7 @@ export function visibleEdges(prerequisites: Prerequisite[], openChapters: Set<st
             target,
             sourceHandle: source.includes("/") && vertical ? "flow-out" : "out",
             targetHandle: target.includes("/") && vertical ? "flow-in" : "in",
-            data: { internalTo: sameChapter && source.includes("/") ? from.chapter : undefined, soft: !!soft },
+            data: { soft: !!soft },
         });
     }
     return [...edges.values()];
@@ -266,7 +272,16 @@ async function runPanelLayout(chapter: ChapterDoc, prerequisites: Prerequisite[]
 
 // The fresh layout: every chapter open, sized to its topics, placed so nothing overlaps.
 // `aspectRatio` is the canvas's width / height, so separate journeys pack to fit the screen.
-export async function layoutTrail(chapters: ChapterDoc[], prerequisites: Prerequisite[], aspectRatio: number) {
+// Kept per canvas shape, so going between the home page and the Trail doesn't lay it out again.
+type TrailLayout = { placements: Record<string, ChapterPlacement>; bounds: Rect };
+const layouts = new Map<string, Promise<TrailLayout>>();
+export function layoutTrail(chapters: ChapterDoc[], prerequisites: Prerequisite[], aspectRatio: number) {
+    const key = aspectRatio.toFixed(2);
+    if (!layouts.has(key)) layouts.set(key, computeLayout(chapters, prerequisites, aspectRatio));
+    return layouts.get(key)!;
+}
+
+async function computeLayout(chapters: ChapterDoc[], prerequisites: Prerequisite[], aspectRatio: number): Promise<TrailLayout> {
     const panels = await Promise.all(chapters.map((chapter) => layoutPanel(chapter, prerequisites, aspectRatio)));
 
     // Chapters are placed as boxes; topic-level links count as links between their chapters

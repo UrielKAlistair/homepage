@@ -34,13 +34,7 @@ const RevealOverlay = (config: RevealConfig) => {
       img.src = framePath(i);
       img.onload = () => {
         count++;
-        if (count === frameCount) {
-          setImages(loaded);
-          console.log(`Loaded ${frameCount} images`);
-        }
-      };
-      img.onerror = () => {
-        console.error(`Failed to load image: ${framePath(i)}`);
+        if (count === frameCount) setImages(loaded);
       };
       loaded.push(img);
     }
@@ -75,7 +69,6 @@ const RevealOverlay = (config: RevealConfig) => {
 
         letterPositions.current = offsets;
         setIsReady(true);
-        console.log("Letter positions recalculated:", offsets.length);
       });
     }
 
@@ -95,7 +88,6 @@ const RevealOverlay = (config: RevealConfig) => {
     const animObserver = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          console.log("Animation triggered");
           setInView(true);
           animObserver.disconnect();
         }
@@ -177,7 +169,6 @@ const RevealOverlay = (config: RevealConfig) => {
       if (currentX > endX) {
         setCanvasOpacity(0);
         clearInterval(interval);
-        console.log("Animation complete");
       }
     }, FRAME_INTERVAL);
 

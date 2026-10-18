@@ -1,7 +1,7 @@
 // A flat-topped hexagonal grid in "odd columns shifted down" layout: the fabric behind the trail
 // (and anything else that wants it). Cells are drawn slightly small, leaving hairline gaps.
 
-export const hexCellScale = 0.9;
+const hexCellScale = 0.9;
 
 export const hexRowHeight = (radius: number) => Math.sqrt(3) * radius;
 export const hexColumnWidth = (radius: number) => 1.5 * radius;

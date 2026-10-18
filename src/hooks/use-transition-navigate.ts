@@ -8,6 +8,9 @@ const readyTimeoutMs = 1500;
 // Fired on window when a transition has finished animating
 export const transitionDoneEvent = "view-transition-done";
 
+// A second click during a transition would start another and push a second history entry
+let inTransition = false;
+
 // Navigates inside a view transition, so elements sharing a view-transition-name on both pages
 // fly from one to the other. React Router's own viewTransition flag needs a data router, which
 // this app (BrowserRouter) doesn't use. Browsers without the API just navigate.
@@ -23,6 +26,8 @@ export function useTransitionNavigate() {
                 navigate(to, { state });
                 return undefined;
             }
+            if (inTransition) return undefined;
+            inTransition = true;
             const transition = document.startViewTransition(() => {
                 const ready = readyEvent
                     ? new Promise<void>((resolve) => {
@@ -34,7 +39,10 @@ export function useTransitionNavigate() {
                 return ready;
             });
             if (onAnimate) transition.ready.then(onAnimate).catch(() => {});
-            const done = () => window.dispatchEvent(new Event(transitionDoneEvent));
+            const done = () => {
+                inTransition = false;
+                window.dispatchEvent(new Event(transitionDoneEvent));
+            };
             transition.finished.then(done, done);
             return transition;
         },

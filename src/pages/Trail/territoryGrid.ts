@@ -29,11 +29,11 @@ export const labelColors: Record<TrailColor, string> = {
     green: "#6aa98a",
     white: "#9ba4b1",
 };
-export const labelFontSize = 13;
+const labelFontSize = 13;
 const labelCharWidth = labelFontSize * 0.9; // glyph plus 0.3em tracking, a slight overestimate
 
 export const hexPoints = hexPolygon(radius);
-export const cellCentre = (col: number, row: number) => hexCentre(col, row, radius);
+const cellCentre = (col: number, row: number) => hexCentre(col, row, radius);
 
 // The six neighbours of a flat-topped cell in "odd columns shifted down" offset coordinates
 const neighbours = (col: number, row: number): [number, number][] => {
@@ -54,7 +54,8 @@ const distanceToRect = (x: number, y: number, r: Rect) => {
     return Math.hypot(dx, dy);
 };
 
-export type GridCell = { key: string; col: number; row: number; x: number; y: number };
+// `neighbours` holds the indices, in `cells`, of the neighbouring cells that are in the grid
+export type GridCell = { key: string; col: number; row: number; x: number; y: number; neighbours: number[] };
 export type Grid = { cols: [number, number]; rows: [number, number]; cells: GridCell[] };
 
 // Covers the chapters plus reach, rounded out to whole blocks
@@ -72,18 +73,24 @@ export function gridExtent(chapters: TerritoryChapter[]) {
 }
 
 export function buildGrid({ cols, rows }: { cols: [number, number]; rows: [number, number] }): Grid {
+    const height = rows[1] - rows[0] + 1;
+    const indexOf = (col: number, row: number) =>
+        col < cols[0] || col > cols[1] || row < rows[0] || row > rows[1] ? -1 : (col - cols[0]) * height + (row - rows[0]);
     const cells: GridCell[] = [];
     for (let col = cols[0]; col <= cols[1]; col++) {
-        for (let row = rows[0]; row <= rows[1]; row++) cells.push({ key: `${col},${row}`, col, row, ...cellCentre(col, row) });
+        for (let row = rows[0]; row <= rows[1]; row++) {
+            const around = neighbours(col, row).map(([c, r]) => indexOf(c, r)).filter((index) => index >= 0);
+            cells.push({ key: `${col},${row}`, col, row, ...cellCentre(col, row), neighbours: around });
+        }
     }
     return { cols, rows, cells };
 }
 
 export type CellLook = { color?: TrailColor; owner?: string; distance: number; level: number; frontier: boolean };
 
-export function computeOwners(grid: Grid, chapters: TerritoryChapter[]) {
-    const looks = new Map<string, CellLook>();
-    for (const cell of grid.cells) {
+// One look per cell, in the order of grid.cells
+export function computeOwners(grid: Grid, chapters: TerritoryChapter[]): CellLook[] {
+    const looks = grid.cells.map((cell): CellLook => {
         let best: TerritoryChapter | undefined;
         let bestDistance = Infinity;
         for (const chapter of chapters) {
@@ -97,12 +104,13 @@ export function computeOwners(grid: Grid, chapters: TerritoryChapter[]) {
         const owned = best && bestDistance <= reach;
         // Three strength levels: under or beside a chapter, nearby, at the edge of reach
         const level = !owned ? 0 : bestDistance < reach / 3 ? 3 : bestDistance < (reach * 2) / 3 ? 2 : 1;
-        looks.set(cell.key, { color: owned ? best!.color : undefined, owner: owned ? best!.id : undefined, distance: bestDistance, level, frontier: false });
-    }
-    for (const cell of grid.cells) {
-        const look = looks.get(cell.key)!;
-        if (look.color) look.frontier = neighbours(cell.col, cell.row).some(([c, r]) => looks.get(`${c},${r}`)?.color !== look.color);
-    }
+        return { color: owned ? best!.color : undefined, owner: owned ? best!.id : undefined, distance: bestDistance, level, frontier: false };
+    });
+    // Cells beyond the grid's edge count as unowned
+    grid.cells.forEach((cell, i) => {
+        const look = looks[i];
+        if (look.color) look.frontier = cell.neighbours.length < 6 || cell.neighbours.some((n) => looks[n].color !== look.color);
+    });
     return looks;
 }
 
@@ -115,29 +123,27 @@ export function cellPaint(color: TrailColor, look: CellLook) {
 
 // One label per domain, at the top-left of its largest connected territory, where the whole
 // label sits clear of every chapter
-export function computeLabels(grid: Grid, looks: Map<string, CellLook>, chapters: TerritoryChapter[]) {
-    const byKey = new Map(grid.cells.map((cell) => [cell.key, cell]));
-    const seen = new Set<string>();
+export function computeLabels(grid: Grid, looks: CellLook[], chapters: TerritoryChapter[]) {
+    const seen = new Uint8Array(grid.cells.length);
     const largest = new Map<TrailColor, GridCell[]>();
-    for (const cell of grid.cells) {
-        const color = looks.get(cell.key)!.color;
-        if (!color || seen.has(cell.key)) continue;
+    grid.cells.forEach((cell, start) => {
+        const color = looks[start].color;
+        if (!color || seen[start]) return;
         const region: GridCell[] = [];
-        const queue = [cell];
-        seen.add(cell.key);
+        const queue = [start];
+        seen[start] = 1;
         while (queue.length > 0) {
             const current = queue.pop()!;
-            region.push(current);
-            for (const [c, r] of neighbours(current.col, current.row)) {
-                const next = byKey.get(`${c},${r}`);
-                if (next && looks.get(next.key)!.color === color && !seen.has(next.key)) {
-                    seen.add(next.key);
+            region.push(grid.cells[current]);
+            for (const next of grid.cells[current].neighbours) {
+                if (!seen[next] && looks[next].color === color) {
+                    seen[next] = 1;
                     queue.push(next);
                 }
             }
         }
         if (region.length > (largest.get(color)?.length ?? 0)) largest.set(color, region);
-    }
+    });
 
     const labels: { color: TrailColor; x: number; y: number; text: string }[] = [];
     for (const [color, region] of largest) {

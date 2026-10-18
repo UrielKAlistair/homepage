@@ -6,6 +6,18 @@ import ExitButton from "@/components/exit-button";
 import { poems, poemCardTransition } from "./poems";
 import type { Poem } from "./poems";
 
+// Back to the home page: the cards drift back into the hand one after another, while the page
+// crossfades into the home page's poetry panel underneath
+const returnMs = 850;
+const returnStagger = 70;
+const returnStyle = poems
+    .map(poemCardTransition)
+    .map((name, i) =>
+        `::view-transition-group(${name}), ::view-transition-old(${name}), ::view-transition-new(${name}) ` +
+        `{ animation-duration: ${returnMs}ms; animation-delay: ${i * returnStagger}ms; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); animation-fill-mode: both; }`
+    )
+    .join("\n");
+
 const Poetry = () => {
   const poemGlowMs = 1200 // one full pulse of the ❖ loading glow
 
@@ -148,7 +160,7 @@ const Poetry = () => {
             
             {/* Poem slot */}
             <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.07] bg-black/30 p-4">
-              <ExitButton returnTo="poetry" className="absolute left-3 top-3 z-20" />
+              <ExitButton returnTo="poetry" transitionStyle={returnStyle} className="absolute left-3 top-3 z-20" />
               {/* Background */}
               <div
                 className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80" : "text-foreground/15"}`}
@@ -209,7 +221,7 @@ const Poetry = () => {
         {/* This section holds the scrollable cards for the poems */}
         <section className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-night-panel md:h-full min-h-0">
           <div className="flex overflow-x-auto md:h-full md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            {poems.map((poem, index) => {
+            {poems.map((poem) => {
               const isDisplayed = displayedPoem?.title === poem.title
               const cardLoaded = loadedCards[poem.title]
               const cardTraced = tracedCards[poem.title]

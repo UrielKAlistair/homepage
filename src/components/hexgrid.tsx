@@ -8,14 +8,12 @@ export const HexPattern = ({
     radius,
     transform,
     stroke,
-    fill = "none",
     strokeWidth = 1,
 }: {
     id: string;
     radius: number;
     transform?: string;
     stroke: string;
-    fill?: string;
     strokeWidth?: number;
 }) => {
     const width = 2 * hexColumnWidth(radius);
@@ -31,7 +29,7 @@ export const HexPattern = ({
     return (
         <pattern id={id} width={width} height={height} patternUnits="userSpaceOnUse" patternTransform={transform}>
             {cells.map(([x, y]) => (
-                <polygon key={`${x},${y}`} points={points} transform={`translate(${x} ${y})`} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
+                <polygon key={`${x},${y}`} points={points} transform={`translate(${x} ${y})`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
             ))}
         </pattern>
     );

@@ -1,4 +1,4 @@
-// Writes a word in Imperial Script (the face of public/header.svg) as an SVG the calligraphy
+// Writes a word in Imperial Script as an SVG the calligraphy
 // component can animate: one <path> per letter (its holes included, so counters stay open),
 // right to left, since the component draws the last path first.
 //

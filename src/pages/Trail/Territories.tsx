@@ -3,7 +3,7 @@ import { useStore } from "@xyflow/react";
 import { HexPattern } from "@/components/hexgrid";
 import { territoryCellRadius as radius } from "./TrailLayout";
 import { buildGrid, cellPaint, computeLabels, computeOwners, gridExtent, hexPoints, labelColors } from "./territoryGrid";
-import type { TerritoryChapter } from "./territoryGrid";
+import type { Grid, TerritoryChapter } from "./territoryGrid";
 
 // The hex fabric behind the trail, and the territories coloured into it (see territoryGrid.ts).
 
@@ -18,7 +18,7 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
     const [tx, ty, zoom] = useStore(transformSelector);
     const fabricId = `trail-fabric-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
     const layerRef = useRef<SVGGElement>(null);
-    const applied = useRef(new Map<string, string>());
+    const applied = useRef<{ grid: Grid | null; paints: string[] }>({ grid: null, paints: [] }); // the paint each cell was last given
 
     // The grid only changes when chapters move into a new block of cells
     const gridKey = chapters.length === 0 ? "" : Object.values(gridExtent(chapters)).flat().join(",");
@@ -32,7 +32,7 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
     const cellElements = useMemo(
         () =>
             grid?.cells.map((cell) => (
-                <polygon key={cell.key} data-key={cell.key} points={hexPoints} transform={`translate(${cell.x} ${cell.y})`} className="trail-territory-cell" />
+                <polygon key={cell.key} points={hexPoints} transform={`translate(${cell.x} ${cell.y})`} className="trail-territory-cell" />
             )),
         [grid]
     );
@@ -44,24 +44,25 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
     useLayoutEffect(() => {
         const layer = layerRef.current;
         if (!layer || !looks) return;
-        if (applied.current.size > 0 && layer.childElementCount !== applied.current.size) applied.current.clear();
-        for (const polygon of layer.children as HTMLCollectionOf<SVGPolygonElement>) {
-            const key = polygon.dataset.key!;
-            const look = looks.get(key);
-            if (!look) continue;
+        // A new grid means new cells: everything is painted afresh
+        if (applied.current.grid !== grid) applied.current = { grid, paints: [] };
+        const { paints } = applied.current;
+        const polygons = layer.children as HTMLCollectionOf<SVGPolygonElement>;
+        looks.forEach((look, i) => {
+            const polygon = polygons[i];
             const signature = `${look.color ?? ""}${look.level}${look.frontier ? "f" : ""}`;
-            if (applied.current.get(key) === signature) continue;
-            applied.current.set(key, signature);
+            if (paints[i] === signature) return;
+            paints[i] = signature;
             if (!look.color) {
                 polygon.style.fill = "transparent";
                 polygon.style.stroke = "transparent";
-                continue;
+                return;
             }
             const paint = cellPaint(look.color, look);
             polygon.style.fill = paint.fill;
             polygon.style.stroke = paint.stroke;
-        }
-    }, [looks]);
+        });
+    }, [grid, looks]);
 
     return (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" style={{ zIndex: 0 }} aria-hidden="true">

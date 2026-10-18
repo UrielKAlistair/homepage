@@ -9,11 +9,10 @@ import {
   SheetDescription,
   SheetTitle
 } from "@/components/ui/sheet"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 // On the home page the links name its panels: the one on screen is highlighted, and clicking
 // a link scrolls to its panel instead of opening the page.
-export type NavbarSections = { current: string | null; goTo: (to: string) => void }
+type NavbarSections = { current: string | null; goTo: (to: string) => void }
 
 export default function Navbar({ sections }: { sections?: NavbarSections }) {
   const [open, setOpen] = useState(false)
@@ -100,10 +99,8 @@ export default function Navbar({ sections }: { sections?: NavbarSections }) {
               </button>
             </SheetTrigger>
             <SheetContent side="left" className="bg-black text-white p-6">
-              <VisuallyHidden>
-                <SheetTitle>Navigation Menu</SheetTitle>
-                <SheetDescription>Select a destination</SheetDescription>
-              </VisuallyHidden>
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <SheetDescription className="sr-only">Select a destination</SheetDescription>
 
               <nav className="flex flex-col gap-6 text-sm font-light uppercase tracking-[0.3em]">
                 {navLinks.map((link) => (

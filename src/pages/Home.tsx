@@ -4,7 +4,9 @@ import { ChevronDown } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Navbar from "@/components/navbar";
 import Calligraphy from "@/components/calligraphy";
-import { useTransitionNavigate } from "@/hooks/use-transition-navigate";
+import poetryWord from "@/assets/calligraphy-poetry.svg?raw";
+import placeholderWord from "@/assets/calligraphy-placeholder.svg?raw";
+import { transitionDoneEvent, useTransitionNavigate } from "@/hooks/use-transition-navigate";
 import { navHeight } from "@/lib/layout";
 import { trailReadyEvent } from "./Trail/TrailLayout";
 import TrailPreview from "./home/TrailPreview";
@@ -80,12 +82,35 @@ const Home = () => {
     const cardWidth = useWindowValue(cardWidthFor);
 
     // Open on the remembered panel before the first paint, so a transition back lands there.
-    // The trail panel is ready only once its drawing is laid out (onTrailDrawn).
+    // A panel is ready once its images are decoded, so nothing pops in during the transition;
+    // the trail panel, once its drawing is laid out (onTrailDrawn).
     useLayoutEffect(() => {
         const root = scrollRef.current;
-        if (root) root.scrollTop = indexOf(initial) * root.clientHeight;
-        if (initial !== "trail") window.dispatchEvent(new Event(homeReadyEvent));
+        if (!root) return;
+        root.scrollTop = indexOf(initial) * root.clientHeight;
+        if (initial === "trail") return;
+        const images = [...root.querySelectorAll<HTMLImageElement>(`[data-panel="${initial}"] img`)];
+        Promise.all(images.map((image) => image.decode().catch(() => {}))).then(() => window.dispatchEvent(new Event(homeReadyEvent)));
     }, [initial]);
+
+    // Coming back from a view lands on a finished panel: leaving counts the panel on screen as seen
+    const currentRef = useRef(current);
+    currentRef.current = current;
+    useEffect(() => () => rememberPlayed(currentRef.current), []);
+
+    // Returning to another panel, the trail drawing (heavy to build) waits until the transition
+    // is over, so it can't stall the cards' flight
+    const [drawTrail, setDrawTrail] = useState(!returnTo || initial === "trail" || !document.startViewTransition);
+    useEffect(() => {
+        if (drawTrail) return;
+        const draw = () => setDrawTrail(true);
+        window.addEventListener(transitionDoneEvent, draw, { once: true });
+        const fallback = window.setTimeout(draw, 3000);
+        return () => {
+            window.removeEventListener(transitionDoneEvent, draw);
+            window.clearTimeout(fallback);
+        };
+    }, [drawTrail]);
 
     useEffect(() => rememberPanel(current), [current]);
 
@@ -154,7 +179,7 @@ const Home = () => {
                     className="overflow-hidden rounded-3xl border border-white/10 bg-night-panel transition-colors hover:border-white/25"
                     style={{ aspectRatio: aspect, width: `min(88vw, calc((100dvh - 220px) * ${aspect}))`, viewTransitionName: "trail-map" }}
                 >
-                    <TrailPreview canvas={canvas} active={current === "trail"} complete={played.has("trail")} onDrawn={onTrailDrawn} onFinished={onTrailFinished} />
+                    {drawTrail && <TrailPreview canvas={canvas} active={current === "trail"} complete={played.has("trail")} onDrawn={onTrailDrawn} onFinished={onTrailFinished} />}
                 </button>
                 <button
                     type="button"
@@ -167,12 +192,12 @@ const Home = () => {
             </Panel>
 
             <Panel id="poetry" onNext={() => goTo(2)}>
-                <Calligraphy src="/calligraphy-poetry.svg" active={current === "poetry"} complete={played.has("poetry")} className="mb-10 aspect-[219/94] w-[min(56vw,17rem)] text-white" />
+                <Calligraphy svg={poetryWord} active={current === "poetry"} complete={played.has("poetry")} className="mb-10 aspect-[219/94] w-[min(56vw,17rem)] text-white" />
                 <PoetryHand active={current === "poetry"} cardWidth={cardWidth} complete={played.has("poetry")} onFinished={onPoetryFinished} />
             </Panel>
 
             <Panel id="more">
-                <Calligraphy src="/calligraphy-placeholder.svg" active={current === "more"} complete={played.has("more")} onFinished={onMoreFinished} className="aspect-[362/77] w-[min(80vw,28rem)] text-white" />
+                <Calligraphy svg={placeholderWord} active={current === "more"} complete={played.has("more")} onFinished={onMoreFinished} className="aspect-[362/77] w-[min(80vw,28rem)] text-white" />
             </Panel>
         </div>
     );

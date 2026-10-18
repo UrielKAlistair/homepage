@@ -180,7 +180,11 @@ const NotePage = () => {
 
     const title = place?.title ?? slug.replace(/-/g, " ");
     useEffect(() => {
+        const previous = document.title;
         document.title = `${title} · Notes`;
+        return () => {
+            document.title = previous;
+        };
     }, [title]);
 
     const loaded = state?.slug === slug && "notebook" in state ? state : null;

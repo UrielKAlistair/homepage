@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useTransitionNavigate } from "@/hooks/use-transition-navigate";
-import { rewindMs } from "@/lib/playback";
 import { poemCardTransition, poems } from "../poems";
 
 // The poem cards arrive as a face-down deck, then are dealt one by one into a fanned hand,
 // turning face up in the air. Hovering lifts a card, as on the Poetry page's tray. Clicking
 // opens the Poetry page: the cards gather into a deck near the left edge, sweep up and over to
 // the tray's first slot, and are dealt down into their slots.
-// The deal runs only while `active`; coming back to an unfinished deal rewinds it a little.
+// The deal is all or nothing: leaving the panel before it finishes cancels it, and it starts
+// over from the top next time.
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -141,7 +141,7 @@ const PoetryHand = ({ active, cardWidth, complete = false, onFinished }: PoetryH
     hoveredRef.current = hovered;
     const n = poems.length;
 
-    // Built the first time the panel is reached; afterwards only paused, rewound and resumed
+    // Built each time the panel is reached until a deal has been seen through
     useEffect(() => {
         if (!active || started) return;
         const built = poems.flatMap((_, i) => {
@@ -160,16 +160,11 @@ const PoetryHand = ({ active, cardWidth, complete = false, onFinished }: PoetryH
     }, [active, started, n, cardWidth, onFinished]);
 
     useEffect(() => {
-        for (const animation of animations.current) {
-            if (animation.playState === "finished") continue;
-            if (active) {
-                if (animation.playState === "paused" && typeof animation.currentTime === "number") {
-                    animation.currentTime = Math.max(0, animation.currentTime - rewindMs);
-                }
-                animation.play();
-            } else animation.pause();
-        }
-    }, [active]);
+        if (active || dealt || !started) return;
+        animations.current.forEach((animation) => animation.cancel());
+        animations.current = [];
+        setStarted(false);
+    }, [active, dealt, started]);
 
     // Which card is lifted, with some give: a lifted card stays lifted while the cursor is near
     // it (including the strip it rose out of), another card takes over only when the cursor is

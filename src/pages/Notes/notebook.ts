@@ -47,7 +47,7 @@ function parseOutput(raw: RawOutput): Output | null {
 // Notebooks are written against MathJax, which is more forgiving than KaTeX. Outside existing
 // math: bare \begin{...} environments become display math. Display math ($$...$$) is moved onto
 // its own lines so markdown treats it as a block, as Jupyter does.
-export function prepareMarkdown(source: string, attachments?: RawCell["attachments"]) {
+function prepareMarkdown(source: string, attachments?: RawCell["attachments"]) {
     let out = "";
     let rest = source;
     // Inline math may wrap across lines (MathJax allows it), but never across a blank line
