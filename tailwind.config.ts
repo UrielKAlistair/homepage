@@ -22,6 +22,8 @@ export default {
 		extend: {
 			fontFamily: {
 				mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+				// Loaded in its light weight only (index.html), so use it with font-light
+				serif: ["Fraunces", "Georgia", "serif"],
 			},
 			colors: {
 				// The site's background, and the panels and canvases that sit on it
