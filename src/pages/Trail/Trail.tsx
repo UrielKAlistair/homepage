@@ -1,20 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { useLocation } from "react-router-dom";
 import { MarkerType, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow } from "@xyflow/react";
 import type { Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { CircleHelp, RotateCcw } from "lucide-react";
 
 import Navbar from "@/components/navbar";
+import ExitButton from "@/components/exit-button";
+import { transitionDoneEvent } from "@/hooks/use-transition-navigate";
 import { chapters } from "./TrailData";
 import { ChapterNode, TopicNode, dragHandleClass } from "./NodeTypes";
 import type { ChapterNodeData } from "./NodeTypes";
 import { TrailActions } from "./TrailTheme";
-import { chapterSize, collapsedRect, directPrerequisites, layoutTrail, territoryCellRadius, territoryReach, visibleEdges } from "./TrailLayout";
+import { boundsOf, chapterSize, collapsedRect, directPrerequisites, framing, layoutTrail, previewFraming, trailReadyEvent, visibleEdges, withTerritory } from "./TrailLayout";
 import type { ChapterPlacement, Rect } from "./TrailLayout";
 import { clearArrangement, introHidden, loadArrangement, saveArrangement } from "./trailStorage";
 import Territories from "./Territories";
 import TrailIntro from "./TrailIntro";
-import type { TerritoryChapter } from "./Territories";
+import type { TerritoryChapter } from "./territoryGrid";
 
 const trailNodeTypes = { chapter: ChapterNode, topic: TopicNode };
 const prerequisites = directPrerequisites(chapters);
@@ -33,11 +37,8 @@ const defaultEdgeOptions = {
     markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor, width: 14, height: 14 },
 };
 
-// Below this zoom the labels get too small to read, so the view pans instead of shrinking further.
-// Phones need a little more, since their text is already small.
-const minReadableZoom = () => (window.innerWidth >= 768 ? 0.5 : 0.6);
-const viewPadding = 24;
-const resetButtonClearance = 60; // top padding when starting from the top-left, so the Reset button covers nothing
+const exitFrameMs = 450;
+const zoomOutMs = reduceMotion ? 0 : 1100; // from the preview's close view to the whole trail, on entering
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -45,6 +46,7 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
 // Each chapter gets a band of z values, so its own edges sit just above it
 const zFor = (order: string[], id: string) => order.indexOf(id) * 3;
 const chapterOf = (nodeId: string) => nodeId.split("/")[0];
+const sizeOf = (element: HTMLElement) => ({ width: element.clientWidth, height: element.clientHeight });
 
 const rectOf = (node: Node): Rect => ({
     x: node.position.x,
@@ -53,25 +55,6 @@ const rectOf = (node: Node): Rect => ({
     height: Number(node.style?.height ?? chapterSize.height),
 });
 
-// The whole territory around an area, with room for the field labels above it
-const territoryMargin = territoryReach + territoryCellRadius * 2;
-const withTerritory = (area: Rect): Rect => ({
-    x: area.x - territoryMargin,
-    y: area.y - territoryMargin,
-    width: area.width + territoryMargin * 2,
-    height: area.height + territoryMargin * 2,
-});
-
-const boundsOf = (rects: Rect[]): Rect => {
-    const x = Math.min(...rects.map((r) => r.x));
-    const y = Math.min(...rects.map((r) => r.y));
-    return {
-        x,
-        y,
-        width: Math.max(...rects.map((r) => r.x + r.width)) - x,
-        height: Math.max(...rects.map((r) => r.y + r.height)) - y,
-    };
-};
 
 const chapterNode = (id: string, rect: Rect, open: boolean, zIndex: number): Node<ChapterNodeData> => {
     const chapter = chapters.find((c) => c.id === id)!;
@@ -80,6 +63,9 @@ const chapterNode = (id: string, rect: Rect, open: boolean, zIndex: number): Nod
         type: "chapter",
         position: { x: rect.x, y: rect.y },
         style: { width: rect.width, height: rect.height },
+        // Known sizes let React Flow show the node before measuring it (see trailReadyEvent)
+        initialWidth: rect.width,
+        initialHeight: rect.height,
         zIndex,
         dragHandle: `.${dragHandleClass}`,
         data: { title: chapter.title, color: chapter.color, open, topicCount: chapter.topics?.length ?? 0, notes: chapter.notes },
@@ -87,7 +73,9 @@ const chapterNode = (id: string, rect: Rect, open: boolean, zIndex: number): Nod
 };
 
 const TrailCanvas = () => {
+    // Arriving from the home page's preview, the view starts exactly as the preview showed it
     const { fitBounds, setViewport } = useReactFlow();
+    const fromPreview = (useLocation().state as { fromPreview?: boolean } | null)?.fromPreview === true;
     const containerRef = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [openChapters, setOpenChapters] = useState<Set<string>>(new Set());
@@ -120,32 +108,31 @@ const TrailCanvas = () => {
         saveArrangement({ chapters: saved, order: orderRef.current });
     }, [saveRequest]);
 
-    // Fits the given area, or on small screens starts at a readable zoom from its top-left
+    // Shows an area framed the Trail's own way
     const showArea = useCallback(
         (area: Rect, duration = 0) => {
-            const container = containerRef.current;
-            if (!container) return;
-            const fitZoom = Math.min(
-                (container.clientWidth - viewPadding * 2) / area.width,
-                (container.clientHeight - viewPadding * 2) / area.height
-            );
-            if (fitZoom >= minReadableZoom()) {
-                fitBounds(area, { padding: 0.08, duration });
-                return;
-            }
-            const zoom = minReadableZoom();
-            const fitsVertically = area.height * zoom <= container.clientHeight - viewPadding * 2;
-            setViewport(
-                {
-                    x: viewPadding - area.x * zoom,
-                    y: fitsVertically ? (container.clientHeight - area.height * zoom) / 2 - area.y * zoom : resetButtonClearance - area.y * zoom,
-                    zoom,
-                },
-                { duration }
-            );
+            if (containerRef.current) setViewport(framing(area, sizeOf(containerRef.current)), { duration });
         },
-        [fitBounds, setViewport]
+        [setViewport]
     );
+
+    // Shows the home page preview's view of these chapters
+    const showPreviewView = useCallback(
+        (chapterNodes: Node[], duration = 0) => {
+            const territory = chapterNodes.map((node) => ({ rect: rectOf(node), color: chapters.find((c) => c.id === node.id)!.color }));
+            if (containerRef.current) setViewport(previewFraming(territory, sizeOf(containerRef.current)), { duration });
+        },
+        [setViewport]
+    );
+
+    // Leaving through Back: glide to the preview's view first, so the canvas shrinks back into
+    // the preview without a jump. A glide running late on slow frames is set exactly at the end.
+    const prepareExit = useCallback(async () => {
+        const chapterNodes = nodesRef.current.filter((node) => node.type === "chapter");
+        showPreviewView(chapterNodes, exitFrameMs);
+        await wait(exitFrameMs + 30);
+        showPreviewView(chapterNodes);
+    }, [showPreviewView]);
 
     // First load: the fresh layout with everything open, or the visitor's saved arrangement
     useEffect(() => {
@@ -169,20 +156,34 @@ const TrailCanvas = () => {
             // Children must follow their parents in the array
             const topicNodes = chapterIds.filter((id) => open.has(id)).flatMap((id) => layout.placements[id].topics);
 
-            setFreshTerritory(
-                chapterIds.map((id) => ({
-                    id,
-                    rect: { ...layout.placements[id].position, ...layout.placements[id].openSize },
-                    color: chapters.find((c) => c.id === id)!.color,
-                    z: 0,
-                }))
-            );
-            setOrder(initialOrder);
-            setOpenChapters(open);
-            setNodes([...chapterNodes, ...topicNodes]);
-            requestAnimationFrame(() => showArea(withTerritory(boundsOf(chapterNodes.map(rectOf)))));
+            // Applied synchronously, so the first frame is complete when the home page's transition
+            // captures it; rendering is paused until then, so no frame or measurement can be awaited
+            flushSync(() => {
+                setFreshTerritory(
+                    chapterIds.map((id) => ({
+                        id,
+                        rect: { ...layout.placements[id].position, ...layout.placements[id].openSize },
+                        color: chapters.find((c) => c.id === id)!.color,
+                        z: 0,
+                    }))
+                );
+                setOrder(initialOrder);
+                setOpenChapters(open);
+                setNodes([...chapterNodes, ...topicNodes]);
+            });
+            const area = withTerritory(boundsOf(chapterNodes.map(rectOf)));
+            if (!fromPreview) showArea(area);
+            else {
+                // Grown out of the home page's preview: start on its close view, then zoom out
+                // once the page has finished growing
+                showPreviewView(chapterNodes);
+                const zoomOut = () => showArea(area, zoomOutMs);
+                if (document.startViewTransition) window.addEventListener(transitionDoneEvent, zoomOut, { once: true });
+                else zoomOut();
+            }
+            window.dispatchEvent(new Event(trailReadyEvent));
         });
-    }, [setNodes, showArea]);
+    }, [setNodes, showArea, showPreviewView, fromPreview]);
 
     // Moves and resizes chapters frame by frame, so their edges follow
     const tween = useCallback(
@@ -348,6 +349,7 @@ const TrailCanvas = () => {
                     <Territories chapters={territoryMode === "fixed" ? freshTerritory : liveTerritory} />
                 </ReactFlow>
 
+                <ExitButton returnTo="trail" beforeLeave={prepareExit} className="absolute left-3 top-3" />
                 <div className="absolute right-3 top-3 flex gap-2">
                     <button
                         type="button"
@@ -377,10 +379,11 @@ const TrailCanvas = () => {
 };
 
 const Trail = () => (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-night">
         <Navbar />
-        <main className="h-[calc(100dvh-72px)] p-3 md:p-6">
-            <div className="h-full overflow-hidden rounded-3xl border border-border bg-muted/70">
+        <main className="h-[calc(100dvh-var(--nav-h))] p-3 md:p-6">
+            {/* Shares its name with the home page's preview, which grows into it */}
+            <div className="h-full overflow-hidden rounded-3xl border border-white/10 bg-night-panel" style={{ viewTransitionName: "trail-map" }}>
                 <ReactFlowProvider>
                     <TrailCanvas />
                 </ReactFlowProvider>

@@ -1,46 +1,27 @@
 import { useRef, useState } from "react"
+import { useLocation } from "react-router-dom"
 import Navbar from "@/components/navbar";
 import BorderTrace from "@/components/bordertrace";
+import ExitButton from "@/components/exit-button";
+import { poems, poemCardTransition } from "./poems";
+import type { Poem } from "./poems";
 
 const Poetry = () => {
   const poemGlowMs = 1200 // one full pulse of the ❖ loading glow
 
-  const poems = [
-    {
-      title: "Rain",
-      cardImage: "/poetry/rain-card.webp",
-      cardPlaceholder: "/poetry/rain-card-tiny.webp",
-      poemImage: "/poetry/rain.webp",
-    },
-    {
-      title: "Rebel",
-      cardImage: "/poetry/rebel-card.webp",
-      cardPlaceholder: "/poetry/rebel-card-tiny.webp",
-      poemImage: "/poetry/rebel.webp",
-    },
-    {
-      title: "Winter",
-      cardImage: "/poetry/winter-card.webp",
-      cardPlaceholder: "/poetry/winter-card-tiny.webp",
-      poemImage: "/poetry/winter.webp",
-    },
-    {
-      title: "Ebony",
-      cardImage: "/poetry/ebony-card.webp",
-      cardPlaceholder: "/poetry/ebony-card-tiny.webp",
-      poemImage: "/poetry/ebony.webp",
-    },
-    
-  ]
 
-  const [displayedPoem, setDisplayedPoem] = useState<(typeof poems)[number] | null>(null)
+  const [displayedPoem, setDisplayedPoem] = useState<Poem | null>(null)
   const [animating, setAnimating] = useState(false)
-  const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>({})
+  // Arriving from the hand of cards on the home page, the cards fly straight into the tray,
+  // so they start out drawn and loaded instead of tracing their borders in
+  const fromDeck = (useLocation().state as { fromDeck?: boolean } | null)?.fromDeck === true
+  const allCards = Object.fromEntries(poems.map((poem) => [poem.title, true]))
+  const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>(fromDeck ? allCards : {})
   const [poemLoading, setPoemLoading] = useState(false)
   const [contentVisible, setContentVisible] = useState(true)
-  const [tracedCards, setTracedCards] = useState<Record<string, boolean>>({})
+  const [tracedCards, setTracedCards] = useState<Record<string, boolean>>(fromDeck ? allCards : {})
   const [flyingCard, setFlyingCard] = useState<{
-    poem: (typeof poems)[number]
+    poem: Poem
     from: { top: number; left: number; width: number; height: number }
     to: { top: number; left: number; width: number; height: number }
     phase: "start" | "end"
@@ -49,7 +30,7 @@ const Poetry = () => {
   const slotRef = useRef<HTMLButtonElement | null>(null)
   const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
-  const loadPoem = (poem: (typeof poems)[number], onReady: () => void) => {
+  const loadPoem = (poem: Poem, onReady: () => void) => {
     setPoemLoading(true)
 
     const poemImage = new Image()
@@ -73,7 +54,7 @@ const Poetry = () => {
     poemImage.onerror = revealPoem
   }
 
-  const startCardAnimation = (poem: (typeof poems)[number]) => {
+  const startCardAnimation = (poem: Poem) => {
     if (animating) {
       return
     }
@@ -156,17 +137,18 @@ const Poetry = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-night">
       <Navbar />
 
-      <div className="grid gap-6 p-3 md:h-[calc(100vh-72px)] md:grid-cols-[minmax(0,1fr)_clamp(8rem,16vw,12rem)]">
+      <div className="grid gap-6 p-3 md:h-[calc(100vh-var(--nav-h))] md:grid-cols-[minmax(0,1fr)_clamp(8rem,16vw,12rem)]">
 
         {/* This section holds the poem slot and the card slot */}
-        <section className="min-w-0 rounded-3xl border border-border bg-muted/70 p-4 md:h-full md:min-h-0">
+        <section className="min-w-0 rounded-3xl border border-white/10 bg-night-panel p-4 md:h-full md:min-h-0">
           <div className="flex h-full min-h-[50vh] min-w-0 flex-col gap-4 md:min-h-0 md:grid md:grid-cols-[minmax(0,1fr)_clamp(7rem,10vw,9rem)]">
             
             {/* Poem slot */}
-            <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background/25 p-4">
+            <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.07] bg-black/30 p-4">
+              <ExitButton returnTo="poetry" className="absolute left-3 top-3 z-20" />
               {/* Background */}
               <div
                 className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80" : "text-foreground/15"}`}
@@ -201,7 +183,7 @@ const Poetry = () => {
                       setContentVisible(true)
                     }, 300)
                   }}
-                  className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-background/40">
+                  className="relative h-full w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-black/30">
 
                   <div className="absolute inset-0 h-full w-full flex items-center justify-center text-3xl text-foreground/15">
                       ✦
@@ -225,7 +207,7 @@ const Poetry = () => {
         </section>
         
         {/* This section holds the scrollable cards for the poems */}
-        <section className="min-w-0 overflow-hidden rounded-3xl border border-border bg-muted/70 md:h-full min-h-0">
+        <section className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-night-panel md:h-full min-h-0">
           <div className="flex overflow-x-auto md:h-full md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             {poems.map((poem, index) => {
               const isDisplayed = displayedPoem?.title === poem.title
@@ -239,14 +221,14 @@ const Poetry = () => {
                 >
                   {/* Wrapper matches the card's box, so the trace lines up with its border without being clipped */}
                   <div className="relative">
-                    <BorderTrace
+                    {!fromDeck && <BorderTrace
                       radius={16}
                       onDone={() =>
                         setTracedCards((current) =>
                           current[poem.title] ? current : { ...current, [poem.title]: true }
                         )
                       }
-                    />
+                    />}
                     <button
                       ref={(node) => {
                         cardRefs.current[poem.title] = node
@@ -254,7 +236,8 @@ const Poetry = () => {
                       type="button"
                       onClick={() => startCardAnimation(poem)}
                       disabled={isDisplayed}
-                      className={`group relative block w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${!cardTraced ? "pointer-events-none opacity-0" : isDisplayed ? "cursor-default border-border opacity-45" : "cursor-pointer border-border hover:-translate-y-1 hover:rotate-[-2.5deg] hover:scale-[1.02] hover:border-foreground hover:shadow-[0_0_45px_rgba(0,0,0,0.28)]"}`}
+                      style={{ viewTransitionName: poemCardTransition(poem) }}
+                      className={`group relative block w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${!cardTraced ? "pointer-events-none opacity-0" : isDisplayed ? "cursor-default border-border opacity-45" : "poem-card cursor-pointer border-border"}`}
                     >
                       <img
                         src={poem.cardPlaceholder}
@@ -271,11 +254,11 @@ const Poetry = () => {
                             current[poem.title] ? current : { ...current, [poem.title]: true }
                           )
                         }}
-                        className={`relative z-10 aspect-[5/7] w-full object-contain transition-[opacity,transform] duration-300 ${cardLoaded ? "opacity-100" : "opacity-0"} ${isDisplayed ? "" : "group-hover:scale-[1.04]"}`}
+                        className={`relative z-10 aspect-[5/7] w-full object-contain transition-[opacity,transform] duration-300 ${cardLoaded ? "opacity-100" : "opacity-0"} ${isDisplayed ? "" : "poem-card-art"}`}
                       />
                       {/* Fixed-height shade above the image; the card art is letterboxed, so it can't sit in the gaps */}
                       {!isDisplayed && (
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+                        <div className="poem-card-shade pointer-events-none absolute inset-x-0 bottom-0 z-20 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
                       )}
                     </button>
                   </div>

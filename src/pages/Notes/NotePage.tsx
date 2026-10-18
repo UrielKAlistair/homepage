@@ -65,7 +65,7 @@ function headingComponents(cell: number, shift: number): Components {
         function NoteHeading({ node, children }: { node?: { position?: { start: { line: number } } }; children?: ReactNode }) {
             const Tag = `h${Math.min(6, Math.max(2, level - shift))}` as "h2";
             return (
-                <Tag id={node?.position ? headingId(cell, node.position.start.line) : undefined} className="scroll-mt-24">
+                <Tag id={node?.position ? headingId(cell, node.position.start.line) : undefined} className="scroll-mt-[calc(var(--nav-h)+1.5rem)]">
                     {children}
                 </Tag>
             );
@@ -199,7 +199,7 @@ const NotePage = () => {
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
-            <div className="mx-auto flex max-w-6xl gap-12 px-5 pb-24 pt-28 md:px-8">
+            <div className="mx-auto flex max-w-6xl gap-12 px-5 pb-24 pt-12 md:px-8">
                 <main className="min-w-0 max-w-3xl flex-1">
                     <Link to="/trail" className="inline-flex items-center gap-1.5 text-sm text-white/45 transition-colors hover:text-white/80">
                         <ArrowLeft className="h-4 w-4" />
@@ -277,7 +277,7 @@ const NotePage = () => {
 
                 {loaded && contents.length > 2 && (
                     <aside className="hidden w-60 shrink-0 xl:block">
-                        <div className="sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto pb-8">
+                        <div className="sticky top-[calc(var(--nav-h)+3rem)] max-h-[calc(100vh-var(--nav-h)-4rem)] overflow-y-auto pb-8">
                             <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-white/35">Contents</p>
                             <Contents headings={contents} active={active} top={topLevel} />
                         </div>

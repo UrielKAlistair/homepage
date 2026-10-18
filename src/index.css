@@ -8,6 +8,10 @@ All colors MUST be HSL.
 
 @layer base {
 
+  :root {
+    --nav-h: 3rem; /* the navbar's height; pages lay out around it */
+  }
+
   .dark {
     --background: 0 0% 0%;
     --foreground: 210 40% 98%;
@@ -128,3 +132,45 @@ All colors MUST be HSL.
 .note-html-output table { border-collapse: collapse; font-size: 0.8rem; }
 .note-html-output th,
 .note-html-output td { border: 1px solid rgba(255, 255, 255, 0.1); padding: 0.25rem 0.6rem; text-align: right; }
+
+/* Home: the trail preview grows in; everything waits, paused, until its panel is reached */
+.trail-preview .tp-fade { animation: tp-fade 500ms ease-out both; }
+.trail-preview .tp-rise { animation: tp-rise 550ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-box: view-box; }
+.trail-preview .tp-draw { stroke-dasharray: 1; animation: tp-draw 700ms ease-in-out both; }
+.trail-preview:not(.playing) * { animation-play-state: paused; }
+@keyframes tp-fade { from { opacity: 0; } }
+@keyframes tp-rise { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
+@keyframes tp-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.trail-preview.done * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .trail-preview * { animation: none !important; }
+}
+
+/* Cards and the trail flying between pages take a little longer than the default crossfade */
+::view-transition-group(*) { animation-duration: 600ms; animation-timing-function: cubic-bezier(0.3, 0.7, 0.2, 1); }
+
+/* Home: no scrollbar (the section dots show position instead) */
+.home-panels { scrollbar-width: none; }
+.home-panels::-webkit-scrollbar { display: none; }
+
+/* Home: the "more below" chevron drifts slowly */
+.home-scroll-cue { animation: home-scroll-cue 2.4s ease-in-out infinite; }
+@keyframes home-scroll-cue {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-scroll-cue { animation: none; }
+}
+
+/* A poem card picked up: hovered on the Poetry page's tray, or lifted in the home page's hand */
+.poem-card { transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, opacity 200ms ease; }
+.poem-card:is(:hover, [data-lifted]) {
+  transform: translateY(-0.25rem) rotate(-2.5deg) scale(1.02);
+  border-color: hsl(var(--foreground));
+  box-shadow: 0 0 45px rgba(0, 0, 0, 0.28);
+}
+.poem-card .poem-card-art { transition: transform 300ms ease, opacity 300ms ease; }
+.poem-card:is(:hover, [data-lifted]) .poem-card-art { transform: scale(1.04); }
+.poem-card .poem-card-shade { opacity: 0; transition: opacity 200ms ease; }
+.poem-card:is(:hover, [data-lifted]) .poem-card-shade { opacity: 1; }

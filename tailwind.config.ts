@@ -20,7 +20,12 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+			},
 			colors: {
+				// The site's background, and the panels and canvases that sit on it
+				night: { DEFAULT: '#03050b', panel: '#060b17' },
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',

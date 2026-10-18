@@ -1,211 +1,179 @@
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import Autoplay from "embla-carousel-autoplay";
-import { Github, ExternalLink } from "lucide-react";
-import { useRef } from "react";
-import { format } from "date-fns";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import Navbar from "@/components/navbar";
-import SlideIn from "@/components/slidein";
-import RevealOverlay from "@/components/reveal";
-import HeroText from "@/components/calligraphy"
+import Calligraphy from "@/components/calligraphy";
+import { useTransitionNavigate } from "@/hooks/use-transition-navigate";
+import { navHeight } from "@/lib/layout";
+import { trailReadyEvent } from "./Trail/TrailLayout";
+import TrailPreview from "./home/TrailPreview";
+import PoetryHand from "./home/PoetryHand";
+import { homeReadyEvent, lastPanel, playedPanels, rememberPanel, rememberPlayed } from "./home/homeSession";
+
+// Three full-screen panels, one per scroll (CSS scroll snapping), with no scrollbar: dots on the
+// right show where you are, and a chevron at the foot of a panel says there's more below.
+// A panel's animation plays only while that panel is the one on screen, and only once per visit.
+// Leaving a view (Trail, Poetry) comes back to the panel it was entered from.
+
+const panels = [
+    { id: "trail", label: "The Trail", path: "/trail" },
+    { id: "poetry", label: "Poetry", path: "/poetry" },
+    { id: "more", label: "More", path: null },
+] as const;
+type PanelId = (typeof panels)[number]["id"];
+const isPanel = (id: unknown): id is PanelId => panels.some((panel) => panel.id === id);
+const indexOf = (id: PanelId) => panels.findIndex((panel) => panel.id === id);
+
+// The Trail page's canvas (see Trail.tsx: padding, then a 1px border), so the preview can show
+// its view and grow straight into it
+function trailCanvasSize() {
+    const inset = (window.innerWidth >= 768 ? 24 : 12) + 1;
+    return { width: window.innerWidth - inset * 2, height: window.innerHeight - navHeight() - inset * 2 };
+}
+
+const cardWidthFor = () => (window.innerWidth >= 768 ? 170 : 112);
+
+function useWindowValue<T>(read: () => T) {
+    const [value, setValue] = useState(read);
+    useEffect(() => {
+        let timer = 0;
+        const onResize = () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => setValue(read()), 200);
+        };
+        window.addEventListener("resize", onResize);
+        return () => {
+            window.removeEventListener("resize", onResize);
+            window.clearTimeout(timer);
+        };
+    }, [read]);
+    return value;
+}
+
+const Panel = ({ id, children, onNext }: { id: PanelId; children: ReactNode; onNext?: () => void }) => (
+    <section data-panel={id} className="relative flex h-[100dvh] snap-start snap-always flex-col items-center justify-center px-4 pb-8 pt-[var(--nav-h)]">
+        {/* A soft navy light behind each panel's centrepiece */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_52%,rgba(37,60,130,0.22),transparent_70%)]" />
+        <div className="relative flex w-full flex-col items-center">{children}</div>
+        {onNext && (
+            <button type="button" onClick={onNext} aria-label="Next" className="home-scroll-cue absolute bottom-4 left-1/2 -translate-x-1/2 p-2 text-white/35 transition-colors hover:text-white/80">
+                <ChevronDown className="h-6 w-6" />
+            </button>
+        )}
+    </section>
+);
 
 const Home = () => {
-    const sectionMaxWidthClass = "max-w-[90rem]";
-    const autoplay = useRef(
-        Autoplay({
-            delay: 3400,
-            stopOnInteraction: true,
-        }),
-    );
+    const navigate = useTransitionNavigate();
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const returnTo = (useLocation().state as { returnTo?: string } | null)?.returnTo;
+    const [initial] = useState<PanelId>(() => {
+        const remembered = returnTo ?? lastPanel();
+        return isPanel(remembered) ? remembered : "trail";
+    });
+    const [current, setCurrent] = useState<PanelId>(initial);
+    const [played] = useState(playedPanels); // as of arriving; panels finished since then just stay finished
+    const [trailFinished, setTrailFinished] = useState(played.has("trail"));
+    const canvas = useWindowValue(trailCanvasSize);
+    const aspect = canvas.width / canvas.height;
+    const cardWidth = useWindowValue(cardWidthFor);
 
-    const projects = [
-        {
-            title: "Poetry",
-            description: "Musings.",
-            lastUpdate: "2025-09-28",
-            technologies: ["Rumination"],
-            demo: "/poetry",
-            newTab: false
-        },
-        {
-            title: "RAG",
-            description: "A learning exercise in making a vectorized retrieval pipeline. Augments an LLM to answer questions from large pdf sources efficiently.",
-            technologies: ["Frustrating LLMs", "Fighting Rate limits"],
-            github: "https://github.com/UrielKAlistair/Textbook_RAG",
-            lastUpdate: "2025-08-22",
-            newTab: true
-        },
-        {
-            title: "Noisy Music Genre Classification",
-            description: "Deep-learning models that classify noisy music mashups from log-mel spectrograms. Trained CNN, CNN-BiLSTM & EfficientNet, reaching 93.1% macro-F1.",
-            technologies: ["CNN", "EfficientNet", "Spectrograms"],
-            github: "https://github.com/UrielKAlistair/DLGenAIProject2026T1",
-            demo: "https://huggingface.co/spaces/UrielKAlistair/efficientspace",
-            newTab: true
-        },
-        {
-            title: "The Trail",
-            description: "A compendium of knowledge.",
-            lastUpdate: "2026-03-25",
-            technologies: ["Wanderlust"],
-            demo: "/trail",
-            newTab: false
-        },
-    ];
+    // Open on the remembered panel before the first paint, so a transition back lands there.
+    // The trail panel is ready only once its drawing is laid out (onTrailDrawn).
+    useLayoutEffect(() => {
+        const root = scrollRef.current;
+        if (root) root.scrollTop = indexOf(initial) * root.clientHeight;
+        if (initial !== "trail") window.dispatchEvent(new Event(homeReadyEvent));
+    }, [initial]);
+
+    useEffect(() => rememberPanel(current), [current]);
+
+    // The panel filling most of the screen is the current one
+    useEffect(() => {
+        const root = scrollRef.current;
+        if (!root) return;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) setCurrent((entry.target as HTMLElement).dataset.panel as PanelId);
+                }
+            },
+            { root, threshold: 0.6 }
+        );
+        root.querySelectorAll("[data-panel]").forEach((panel) => observer.observe(panel));
+        return () => observer.disconnect();
+    }, []);
+
+    const goTo = (index: number) => {
+        const root = scrollRef.current;
+        root?.scrollTo({ top: index * root.clientHeight, behavior: "smooth" });
+    };
+
+    const onTrailDrawn = useCallback(() => window.dispatchEvent(new Event(homeReadyEvent)), []);
+    const onTrailFinished = useCallback(() => {
+        setTrailFinished(true);
+        rememberPlayed("trail");
+    }, []);
+    const onPoetryFinished = useCallback(() => rememberPlayed("poetry"), []);
+    const onMoreFinished = useCallback(() => rememberPlayed("more"), []);
+    const enterTrail = () => navigate("/trail", { state: { fromPreview: true }, readyEvent: trailReadyEvent });
+
     return (
-        <div className="min-h-screen bg-background overflow-hidden">
-            <Navbar />
-            {/* Hero Section */}
-            <section className="relative flex items-center justify-center bg-secondary/[0.30] py-16 md:py-10">
-                <HeroText className={sectionMaxWidthClass} />
-            </section>
+        <div ref={scrollRef} className="home-panels h-[100dvh] snap-y snap-mandatory overflow-y-auto bg-night">
+            <Navbar
+                sections={{
+                    current: panels.find((panel) => panel.id === current)?.path ?? null,
+                    goTo: (to) => goTo(panels.findIndex((panel) => panel.path === to)),
+                }}
+            />
 
-            {/* Showcase Section */}
-
-            <section id="showcase" className="pt-10 pb-5 bg-muted/65 relative">
-                <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
-                    <div className="flex flex-col items-center text-center mb-10 space-y-2">
-                        <div className="flex flex-row gap-5 justify-center items-end relative px-10">
-                            <p className="text-2xl font-semibold text-foreground">
-                                A Snippet of what I've been upto recently
-                            <span className="ml-1 align-super text-muted-foreground">*</span> :
-                            </p>
-                        </div>
-                    </div>
-                    <Carousel
-                        opts={{ loop: true }}
-                        plugins={[autoplay.current]}
-                        onMouseEnter={autoplay.current.stop}
-                        onMouseLeave={() => autoplay.current.play()}
+            <nav aria-label="Sections" className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-3 md:right-6">
+                {panels.map((panel, i) => (
+                    <button
+                        key={panel.id}
+                        type="button"
+                        onClick={() => goTo(i)}
+                        aria-label={panel.label}
+                        aria-current={current === panel.id ? "true" : undefined}
+                        className="group relative flex h-6 w-6 items-center justify-center"
                     >
-                        <CarouselContent>
-                            {projects.map((project, index) => (
-                                <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3 flex-shrink-0">
-                                    <Card key={index} className="relative hover:shadow-lg hover:border-muted-foreground/40 transition duration-300 flex flex-col justify-between h-full">
-                                        {/* Whole-card link sits underneath; the icon links are raised above it */}
-                                        <a
-                                            href={project.demo ?? project.github}
-                                            target={project.newTab ? "_blank" : undefined}
-                                            rel="noopener noreferrer"
-                                            aria-label={project.title}
-                                            className="absolute inset-0 z-0 rounded-lg"
-                                        />
-                                        <CardHeader className="space-y-2 p-5">
-                                            <CardTitle className="flex items-start justify-between gap-3">
-                                                {project.title}
-                                                <div className="relative z-10 flex space-x-2 pt-1">
-                                                    {project.github &&(
-                                                    <a href={project.github} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" aria-label={`${project.title} on GitHub`} className="text-muted-foreground hover:text-foreground">
-                                                        <Github className="h-4 w-4" />
-                                                    </a>
-                                                    )}
-                                                    {
-                                                    project.demo && (<a href={project.demo} target={project.newTab ? "_blank" : undefined} rel="noopener noreferrer" aria-label={`${project.title} demo`} className="text-muted-foreground hover:text-foreground">
-                                                        <ExternalLink className="h-4 w-4" />
-                                                    </a>)}
-                                                </div>
-                                            </CardTitle>
-                                            <CardDescription>
-                                                {project.description}
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="px-5 pb-5 pt-0 space-y-3">
-                                            <div className="flex flex-wrap gap-2">
-                                                {project.technologies.map((tech, techIndex) => (
-                                                    <Badge key={techIndex} variant="outline">
-                                                        {tech}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                            {project.lastUpdate && (
-                                                <p className="text-xs text-muted-foreground/70">
-                                                    Updated {format(new Date(project.lastUpdate), "MMM yyyy")}
-                                                </p>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                </CarouselItem>
-                            ))}
+                        <span className={`block w-1.5 rounded-full transition-all duration-300 ${current === panel.id ? "h-5 bg-white/80" : "h-1.5 bg-white/30 group-hover:bg-white/60"}`} />
+                        <span className="pointer-events-none absolute right-7 whitespace-nowrap font-mono text-[0.65rem] uppercase tracking-[0.2em] text-white/60 opacity-0 transition-opacity group-hover:opacity-100">
+                            {panel.label}
+                        </span>
+                    </button>
+                ))}
+            </nav>
 
-                        </CarouselContent>
-                        {/* Below md the side arrows would hang off-screen, so they sit in a row under the cards */}
-                        <div className="mt-4 flex justify-center gap-4 md:mt-0">
-                            <CarouselPrevious className="static translate-y-0 md:absolute md:-translate-y-1/2 md:ml-4" />
-                            <CarouselNext className="static translate-y-0 md:absolute md:-translate-y-1/2 md:mr-4" />
-                        </div>
-                    </Carousel>
+            <Panel id="trail" onNext={() => goTo(1)}>
+                <button
+                    type="button"
+                    onClick={enterTrail}
+                    aria-label="Enter the trail"
+                    className="overflow-hidden rounded-3xl border border-white/10 bg-night-panel transition-colors hover:border-white/25"
+                    style={{ aspectRatio: aspect, width: `min(88vw, calc((100dvh - 220px) * ${aspect}))`, viewTransitionName: "trail-map" }}
+                >
+                    <TrailPreview canvas={canvas} active={current === "trail"} complete={played.has("trail")} onDrawn={onTrailDrawn} onFinished={onTrailFinished} />
+                </button>
+                <button
+                    type="button"
+                    onClick={enterTrail}
+                    tabIndex={trailFinished ? 0 : -1}
+                    className={`mt-6 font-mono text-xs uppercase tracking-[0.25em] text-white/55 transition-all duration-700 hover:text-white ${trailFinished ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"}`}
+                >
+                    Enter the trail →
+                </button>
+            </Panel>
 
-                    <footer className="pt-3 pb-2 text-center text-xs text-muted-foreground">
-                        *recency subject to laziness in updating page.
-                    </footer>
-                </div>
-            </section>
+            <Panel id="poetry" onNext={() => goTo(2)}>
+                <Calligraphy src="/calligraphy-poetry.svg" active={current === "poetry"} complete={played.has("poetry")} className="mb-10 aspect-[219/94] w-[min(56vw,17rem)] text-white" />
+                <PoetryHand active={current === "poetry"} cardWidth={cardWidth} complete={played.has("poetry")} onFinished={onPoetryFinished} />
+            </Panel>
 
-            {/* About Section */}
-            <section className="pt-5 pb-3 bg-secondary/[0.38]">
-                <div className={`mx-auto w-full ${sectionMaxWidthClass} px-4 sm:px-6 lg:px-8`}>
-                    <div className="flex flex-col md:grid md:grid-cols-2 items-center">
-
-                        <div className="flex flex-col gap-6 order-1 md:order-2 pb-10">
-                            <SlideIn>
-                                <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-center">
-                                    About Me
-                                </h2>
-                            </SlideIn>
-                            <div className="prose prose-lg max-w-none text-muted-foreground px-5 space-y-2">
-
-                                <SlideIn>
-                                    <p className="leading-relaxed">
-                                        I'm a curious builder driven by discovery. (and coffee.)
-                                    </p>
-                                </SlideIn>
-
-                                <SlideIn>
-                                    <p className="leading-relaxed">
-                                        Lazy, Impatient, Vainglorious: I've maxed out the Programmer primary stats.
-                                    </p>
-                                </SlideIn>
-
-                                <SlideIn duration={650}>
-                                    <p className="leading-relaxed">
-                                        I'm wired for understanding and creation — breaking ideas down and building them back up,
-                                        be it code, math, or physics. That instinct's led me to IITM, a great many beautiful
-                                        problems and fascinating people to work on them with. I love to create things, be it a
-                                        clean UI, or a clever piece of unseen code. They are to me, a game, a puzzle, and an
-                                        art; they are to me, beauty itself.
-                                    </p>
-                                </SlideIn>
-
-                                <SlideIn>
-                                    <p className="leading-relaxed">
-                                        When not writing code, I will be found writing poetry, speedrunning celeste or catching up on anime.
-                                    </p>
-                                </SlideIn>
-                            </div>
-                        </div>
-                        <div className="order-2 md:order-1 p-8">
-                            <SlideIn threshold={0.1}>
-                                <img
-                                    src="/uk-sunrise.webp"
-                                    alt="UK staring into the sunrise at coorg"
-                                    width={1200}
-                                    height={855}
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="object-cover rounded-2xl shadow-lg w-full h-full flex justify-center"
-                                />
-                            </SlideIn>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-
-
-            <section className="py-2.5 bg-background relative">
-                <RevealOverlay text="echo $SLEEP > /dev/null" />
-            </section>
+            <Panel id="more">
+                <Calligraphy src="/calligraphy-placeholder.svg" active={current === "more"} complete={played.has("more")} onFinished={onMoreFinished} className="aspect-[362/77] w-[min(80vw,28rem)] text-white" />
+            </Panel>
         </div>
     );
 };

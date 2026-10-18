@@ -1,7 +1,7 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { ElkNode } from "elkjs/lib/elk.bundled.js";
 import type { Edge, Node, XYPosition } from "@xyflow/react";
-import type { ChapterDoc } from "./TrailData";
+import type { ChapterDoc, TrailColor } from "./TrailData";
 import type { TopicNodeData } from "./NodeTypes";
 
 // Box sizes the layout reserves; NodeTypes renders into exactly these
@@ -18,6 +18,80 @@ export const territoryReach = 52; // how far a territory extends beyond its chap
 
 export type Size = { width: number; height: number };
 export type Rect = XYPosition & Size;
+
+export const boundsOf = (rects: Rect[]): Rect => {
+    const x = Math.min(...rects.map((r) => r.x));
+    const y = Math.min(...rects.map((r) => r.y));
+    return {
+        x,
+        y,
+        width: Math.max(...rects.map((r) => r.x + r.width)) - x,
+        height: Math.max(...rects.map((r) => r.y + r.height)) - y,
+    };
+};
+
+// Fired once the first layout is on screen (the home page's transition waits for it)
+export const trailReadyEvent = "trail-ready";
+
+// The whole territory around an area, with room for the field labels above it
+const territoryMargin = territoryReach + territoryCellRadius * 2;
+export const withTerritory = (area: Rect): Rect => ({
+    x: area.x - territoryMargin,
+    y: area.y - territoryMargin,
+    width: area.width + territoryMargin * 2,
+    height: area.height + territoryMargin * 2,
+});
+
+// Below this zoom the labels get too small to read, so the view pans instead of shrinking further.
+// Phones need a little more, since their text is already small.
+const minReadableZoom = () => (window.innerWidth >= 768 ? 0.5 : 0.6);
+const viewPadding = 24;
+const fitPadding = 0.08; // as a share of the area, the way React Flow's fitBounds pads
+const resetButtonClearance = 60; // top padding when starting from the top-left, so the Reset button covers nothing
+
+export type Viewport = { x: number; y: number; zoom: number };
+
+// How the Trail page shows an area on a canvas of this size: all of it, if it can be read that
+// small; otherwise at the smallest readable zoom, starting from its left edge. The home page's
+// preview shows exactly this view, so entering and leaving the Trail is one continuous zoom.
+export function framing(area: Rect, canvas: Size): Viewport {
+    const fitZoom = Math.min((canvas.width - viewPadding * 2) / area.width, (canvas.height - viewPadding * 2) / area.height);
+    if (fitZoom >= minReadableZoom()) {
+        const zoom = Math.min(canvas.width / (area.width * (1 + fitPadding)), canvas.height / (area.height * (1 + fitPadding)));
+        return { x: canvas.width / 2 - (area.x + area.width / 2) * zoom, y: canvas.height / 2 - (area.y + area.height / 2) * zoom, zoom };
+    }
+    const zoom = minReadableZoom();
+    const fitsVertically = area.height * zoom <= canvas.height - viewPadding * 2;
+    return {
+        x: viewPadding - area.x * zoom,
+        y: fitsVertically ? (canvas.height - area.height * zoom) / 2 - area.y * zoom : resetButtonClearance - area.y * zoom,
+        zoom,
+    };
+}
+
+// The home page's preview: the map from its top-left corner down to the territory of the lowest
+// chapter above the Physics row; Physics is left for the Trail itself to reveal. Entering the Trail starts on this
+// view and zooms out to `framing`.
+const previewHorizonColor: TrailColor = "blue";
+export function previewFraming(chapters: { rect: Rect; color: TrailColor }[], canvas: Size): Viewport {
+    const area = withTerritory(boundsOf(chapters.map((c) => c.rect)));
+    const physicsTop = Math.min(...chapters.filter((c) => c.color === previewHorizonColor).map((c) => c.rect.y));
+    const above = chapters.filter((c) => c.rect.y + c.rect.height < physicsTop).map((c) => c.rect.y + c.rect.height + territoryReach);
+    const horizon = above.length ? Math.max(...above) : area.y + area.height;
+    // Physics dragged up near the top would leave a sliver: show the whole map then
+    const height = horizon - area.y > area.height * 0.3 ? horizon - area.y : area.height;
+    const zoom = canvas.height / height;
+    const spare = Math.max(0, canvas.width / zoom - area.width); // a view wider than the map is centred on it
+    return { x: -(area.x - spare / 2) * zoom, y: -area.y * zoom, zoom };
+}
+
+// The part of the map a viewport shows, in flow coordinates
+export const visibleArea = (view: Viewport, canvas: Size): Rect => ({
+    x: -view.x / view.zoom,
+    y: -view.y / view.zoom,
+    width: canvas.width / view.zoom,
+    height: canvas.height / view.zoom,
+});
 
 const elk = new ELK();
 
@@ -182,6 +256,8 @@ async function runPanelLayout(chapter: ChapterDoc, prerequisites: Prerequisite[]
             position: { x: (elkNode.x ?? 0) + offsetX, y: elkNode.y ?? 0 },
             // React Flow ignores the pointer on nodes it can't drag; topics need it for links and hover
             style: { ...topicSize, pointerEvents: "all" },
+            initialWidth: topicSize.width,
+            initialHeight: topicSize.height,
             data: { title: topic.title, color: chapter.color, direction, notes: topic.notes },
         };
     });
