@@ -305,6 +305,9 @@ const TrailMap = forwardRef<TrailMapHandle, TrailMapProps>(({ view, aspectRatio,
                         zoomOnPinch={live}
                         zoomOnDoubleClick={live}
                         preventScrolling={live}
+                        // React Flow's keys listen on the whole document and swallow the key, so
+                        // the map in the panel would take them from the home page
+                        {...(live ? {} : { panActivationKeyCode: null, deleteKeyCode: null, selectionKeyCode: null, multiSelectionKeyCode: null, zoomActivationKeyCode: null })}
                         minZoom={0.2}
                         maxZoom={2}
                         nodesConnectable={false}

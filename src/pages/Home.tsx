@@ -151,6 +151,42 @@ const Home = () => {
         root?.scrollTo({ top: index * root.clientHeight, behavior: "smooth" });
     };
 
+    // The keyboard moves a panel at a time wherever focus is: up and Page Up back, down, Page Down
+    // and Space on (Shift+Space back), Home and End to the ends. Typing, dialogs, buttons' own
+    // Space, shortcuts and the full-size map keep their keys. A press during a move counts from
+    // where the move is heading, so two quick presses go two panels.
+    useEffect(() => {
+        const root = scrollRef.current;
+        if (!root || expanded) return;
+        let heading: number | null = null;
+        const steps: Record<string, number> = { ArrowUp: -1, PageUp: -1, ArrowDown: 1, PageDown: 1 };
+        const onKey = (event: KeyboardEvent) => {
+            if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+            const target = event.target as HTMLElement;
+            if (target.closest("input, textarea, select, [contenteditable], [role=dialog]")) return;
+            const space = event.key === " ";
+            if (space && target.closest("button, a")) return;
+            if (event.shiftKey && !space) return;
+            const from = heading ?? Math.round(root.scrollTop / root.clientHeight);
+            let to: number;
+            if (event.key === "Home") to = 0;
+            else if (event.key === "End") to = panels.length - 1;
+            else if (space) to = from + (event.shiftKey ? -1 : 1);
+            else if (event.key in steps) to = from + steps[event.key];
+            else return;
+            event.preventDefault();
+            heading = Math.min(panels.length - 1, Math.max(0, to));
+            root.scrollTo({ top: heading * root.clientHeight, behavior: "smooth" });
+        };
+        const arrived = () => (heading = null);
+        window.addEventListener("keydown", onKey);
+        root.addEventListener("scrollend", arrived);
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            root.removeEventListener("scrollend", arrived);
+        };
+    }, [expanded]);
+
     // A panel's centrepiece waits until its heading is (nearly) written
     const [written, setWritten] = useState(() => new Set<PanelId>([...played].filter(isPanel)));
     const headingWritten = (id: PanelId) => () => setWritten((ids) => new Set(ids).add(id));
