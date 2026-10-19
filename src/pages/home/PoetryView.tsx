@@ -1,40 +1,32 @@
-import { useRef, useState } from "react"
-import { useLocation } from "react-router-dom"
-import Navbar from "@/components/navbar";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react"
 import BorderTrace from "@/components/bordertrace";
 import { BackButton } from "@/components/back-button";
-import { useLeaveView } from "@/hooks/use-leave-view";
 import { isPhone } from "@/lib/layout";
-import { poems, poemCardTransition } from "./poems";
-import type { Poem } from "./poems";
+import { poems } from "../poems";
+import type { Poem } from "../poems";
 
-// Back to the home page: the cards drift back into the hand one after another, while the page
-// crossfades into the home page's poetry panel underneath
-const returnMs = 850;
-const returnStagger = 70;
-const returnStyle = poems
-    .map(poemCardTransition)
-    .map((name, i) =>
-        `::view-transition-group(${name}), ::view-transition-old(${name}), ::view-transition-new(${name}) ` +
-        `{ animation-duration: ${returnMs}ms; animation-delay: ${i * returnStagger}ms; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); animation-fill-mode: both; }`
-    )
-    .join("\n");
+// The Poetry view: the home page's poetry panel grown to fill the screen (see PoetryStage). A
+// tray of poem cards; a card picked from it flies into the card slot and its poem opens.
 
-const Poetry = () => {
+type PoetryViewProps = {
+  onExit: () => void;
+  arrived: boolean; // the cards flew in from the hand, so they start out drawn and loaded instead of tracing their borders in
+  cardsHidden: boolean; // the tray's cards are flying (their copies are): hide them
+};
+
+export type PoetryViewHandle = { root: () => HTMLElement; trayCards: () => HTMLElement[] };
+
+const PoetryView = forwardRef<PoetryViewHandle, PoetryViewProps>(({ onExit, arrived, cardsHidden }, ref) => {
   const poemGlowMs = 1200 // one full pulse of the ❖ loading glow
-  const leave = useLeaveView("poetry", returnStyle)
 
 
   const [displayedPoem, setDisplayedPoem] = useState<Poem | null>(null)
   const [animating, setAnimating] = useState(false)
-  // Arriving from the hand of cards on the home page, the cards fly straight into the tray,
-  // so they start out drawn and loaded instead of tracing their borders in
-  const fromDeck = (useLocation().state as { fromDeck?: boolean } | null)?.fromDeck === true
   const allCards = Object.fromEntries(poems.map((poem) => [poem.title, true]))
-  const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>(fromDeck ? allCards : {})
+  const [loadedCards, setLoadedCards] = useState<Record<string, boolean>>(arrived ? allCards : {})
   const [poemLoading, setPoemLoading] = useState(false)
   const [contentVisible, setContentVisible] = useState(true)
-  const [tracedCards, setTracedCards] = useState<Record<string, boolean>>(fromDeck ? allCards : {})
+  const [tracedCards, setTracedCards] = useState<Record<string, boolean>>(arrived ? allCards : {})
   const [flyingCard, setFlyingCard] = useState<{
     poem: Poem
     from: { top: number; left: number; width: number; height: number }
@@ -44,6 +36,8 @@ const Poetry = () => {
 
   const slotRef = useRef<HTMLButtonElement | null>(null)
   const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const rootRef = useRef<HTMLDivElement>(null)
+  useImperativeHandle(ref, () => ({ root: () => rootRef.current!, trayCards: () => poems.map((poem) => cardRefs.current[poem.title]!) }), [])
 
   const loadPoem = (poem: Poem, onReady: () => void) => {
     setPoemLoading(true)
@@ -152,9 +146,7 @@ const Poetry = () => {
   }
 
   return (
-    <div className="min-h-screen bg-night">
-      {/* On phones Back lives in the navbar, since here it would cover the poem */}
-      <Navbar back={leave} />
+    <div ref={rootRef} className="fixed inset-0 z-40 overflow-y-auto bg-night pt-[var(--nav-h)]">
 
       <div className="grid gap-6 p-3 md:h-[calc(100vh-var(--nav-h))] md:grid-cols-[minmax(0,1fr)_clamp(8rem,16vw,12rem)]">
 
@@ -164,7 +156,8 @@ const Poetry = () => {
             
             {/* Poem slot */}
             <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.07] bg-black/30 p-4">
-              <BackButton onClick={leave} className="absolute left-3 top-3 z-20 hidden md:flex" />
+              {/* On phones Back is in the navbar instead, since here it would cover the poem */}
+              <BackButton onClick={onExit} className="absolute left-3 top-3 z-20 hidden md:flex" />
               {/* Background */}
               <div
                 className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80" : "text-foreground/15"}`}
@@ -237,7 +230,7 @@ const Poetry = () => {
                 >
                   {/* Wrapper matches the card's box, so the trace lines up with its border without being clipped */}
                   <div className="relative">
-                    {!fromDeck && <BorderTrace
+                    {!arrived && <BorderTrace
                       radius={16}
                       onDone={() =>
                         setTracedCards((current) =>
@@ -252,7 +245,7 @@ const Poetry = () => {
                       type="button"
                       onClick={() => startCardAnimation(poem)}
                       disabled={isDisplayed}
-                      style={{ viewTransitionName: poemCardTransition(poem) }}
+                      style={{ visibility: cardsHidden ? "hidden" : undefined }}
                       className={`group relative block w-28 shrink-0 overflow-hidden rounded-2xl border bg-white transition-all duration-200 md:w-full ${!cardTraced ? "pointer-events-none opacity-0" : isDisplayed ? "cursor-default border-border opacity-45" : "poem-card cursor-pointer border-border"}`}
                     >
                       <img
@@ -310,6 +303,6 @@ const Poetry = () => {
       )}
     </div>
   )
-}
+})
 
-export default Poetry
+export default PoetryView

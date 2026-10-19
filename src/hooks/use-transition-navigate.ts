@@ -11,22 +11,20 @@ export const transitionDoneEvent = "view-transition-done";
 // A second click during a transition would start another and push a second history entry
 let inTransition = false;
 
-// Navigates inside a view transition, so elements sharing a view-transition-name on both pages
-// fly from one to the other. React Router's own viewTransition flag needs a data router, which
-// this app (BrowserRouter) doesn't use. Browsers without the API just navigate.
+// Navigates inside a view transition, so the old page crossfades into the new one. React
+// Router's own viewTransition flag needs a data router, which this app (BrowserRouter) doesn't
+// use. Browsers without the API just navigate.
 // `readyEvent`: a window event the next page fires once its content is drawn; until then the
-// browser holds the old page, so the flight doesn't land on an empty one.
-// `onAnimate`: runs when the transition's animations exist, to add to them.
-// Returns the transition, if there is one.
+// browser holds the old page, so it doesn't fade into an empty one.
 export function useTransitionNavigate() {
     const navigate = useNavigate();
     return useCallback(
-        (to: string, { state, readyEvent, onAnimate }: { state?: unknown; readyEvent?: string; onAnimate?: () => void } = {}) => {
+        (to: string, { state, readyEvent }: { state?: unknown; readyEvent?: string } = {}) => {
             if (!document.startViewTransition) {
                 navigate(to, { state });
-                return undefined;
+                return;
             }
-            if (inTransition) return undefined;
+            if (inTransition) return;
             inTransition = true;
             const transition = document.startViewTransition(() => {
                 const ready = readyEvent
@@ -38,13 +36,11 @@ export function useTransitionNavigate() {
                 flushSync(() => navigate(to, { state }));
                 return ready;
             });
-            if (onAnimate) transition.ready.then(onAnimate).catch(() => {});
             const done = () => {
                 inTransition = false;
                 window.dispatchEvent(new Event(transitionDoneEvent));
             };
             transition.finished.then(done, done);
-            return transition;
         },
         [navigate]
     );

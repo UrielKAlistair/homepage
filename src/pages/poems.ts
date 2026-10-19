@@ -1,4 +1,4 @@
-// The poems, shared by the Poetry page and the hand of cards on the home page
+// The poems, shared by the Poetry view and the hand of cards on the home page
 
 export type Poem = { title: string; cardImage: string; cardPlaceholder: string; poemImage: string };
 
@@ -29,5 +29,3 @@ export const poems: Poem[] = [
   },
 ];
 
-// The same name on a card in both places lets the browser fly it from one page to the other
-export const poemCardTransition = (poem: Poem) => `poem-card-${poem.title.toLowerCase()}`;

@@ -1,5 +1,20 @@
 import { useLayoutEffect, useEffect, useRef, useState } from "react";
 
+// TODO: the knight as an Easter egg instead of an animation everyone watches.
+// - He stands on the echo line's baseline beside the photo (the wall; the screen's left edge on
+//   phones), looping the game's idle animation (cloak swaying). No nudge to click, and the echo
+//   line stays completely hidden until he dashes.
+// - Clicking him: the first two clicks each play a hop in place (jump, airborne, land; clicks
+//   mid-hop are ignored). The third click jumps him onto the wall, he clings, then wall-dashes
+//   across the line, revealing it, as the current frames do.
+// - New frames needed: idle, jump, airborne/fall, land, possibly a wall-jump take-off. Knight body
+//   only; skip the effect layers except the dash's.
+// - Extraction (Linux works): Hollow Knight is Unity 2017.4. Pilot a UnityPy script that lists the
+//   Knight's 2D Toolkit animation clips (name, frame count) and exports only the chosen ones; if
+//   it can't decode the clip data, fall back to AssetRipper / UABEANext and sort by hand.
+// - Assets: downscale frames to about 270x405 (drawn at about 136x204 px) and pack them into one
+//   sprite sheet instead of separate files; the total should stay near today's 1.3 MB.
+
 // The knight clings to a wall at `wallX()` (a viewport x) until `active` and on screen, idles,
 // then dashes right across the line, revealing it, and off the screen.
 interface RevealConfig {

@@ -24,7 +24,7 @@ const navLinks = [
 ]
 
 // The panel another page belongs to
-const pagePanel = (path: string) => (path === "/poetry" ? "poetry" : path.startsWith("/notes/") ? "trail" : null)
+const pagePanel = (path: string) => (path.startsWith("/notes/") ? "trail" : null)
 
 // `overlay`: the page runs underneath the bar instead of starting below it.
 // `back`: on phones, a Back button takes the name's place, for views with no room for their own.

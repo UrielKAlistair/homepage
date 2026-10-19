@@ -10,16 +10,17 @@ import aboutWord from "@/assets/calligraphy-about.svg?raw";
 import { transitionDoneEvent } from "@/hooks/use-transition-navigate";
 import { isPhone, navHeight, stageInset } from "@/lib/layout";
 import TrailStage from "./home/TrailStage";
-import PoetryHand from "./home/PoetryHand";
+import PoetryStage from "./home/PoetryStage";
 import AboutPanel from "./home/AboutPanel";
 import { homeReadyEvent, lastPanel, playedPanels, rememberPanel, rememberPlayed } from "./home/homeSession";
 
 // Three full-screen panels, one per scroll (CSS scroll snapping), with no scrollbar: dots on the
 // right show where you are, and a chevron at the foot of a panel says there's more below.
 // A panel's animation plays only while that panel is the one on screen, and only once per visit.
-// The trail panel holds the trail map itself, which grows to fill the screen at /trail (see
-// TrailStage); Poetry is its own page. Leaving either comes back to the panel it was entered from.
-// The navbar's links name panels too: here they scroll to their panel (leaving the full-size map
+// Two panels grow into views that fill the screen, each at its own URL: the trail map at /trail
+// (see TrailStage) and the hand of cards into the Poetry view at /poetry (see PoetryStage). The
+// URL alone opens and closes them, so the browser's Back closes a view just as its Back button
+// does. The navbar's links name panels too: here they scroll to their panel (closing the view
 // first), and from any other page they come back here, landing on it.
 
 const panels = [
@@ -29,6 +30,7 @@ const panels = [
 ] as const;
 type PanelId = (typeof panels)[number]["id"];
 const isPanel = (id: unknown): id is PanelId => panels.some((panel) => panel.id === id);
+const views: Record<string, PanelId> = { "/trail": "trail", "/poetry": "poetry" };
 const indexOf = (id: PanelId) => panels.findIndex((panel) => panel.id === id);
 
 // The full-size trail map's drawing area: the window below the navbar, inset, inside a 1px border
@@ -86,16 +88,16 @@ const Panel = ({ id, children, onNext }: { id: PanelId; children: ReactNode; onN
 const Home = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const expanded = location.pathname === "/trail";
+    const view: PanelId | null = views[location.pathname] ?? null;
     const scrollRef = useRef<HTMLDivElement>(null);
     const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
     const [initial] = useState<PanelId>(() => {
-        const remembered = expanded ? "trail" : (returnTo ?? lastPanel());
+        const remembered = view ?? returnTo ?? lastPanel();
         return isPanel(remembered) ? remembered : "trail";
     });
     const [current, setCurrent] = useState<PanelId>(initial);
-    // As of arriving; panels finished since then just stay finished. Arriving at /trail, the map is already full size.
-    const [played] = useState(() => (expanded ? new Set([...playedPanels(), "trail"]) : playedPanels()));
+    // As of arriving; panels finished since then just stay finished. Arriving at a view, its panel is already done.
+    const [played] = useState(() => (view ? new Set([...playedPanels(), view]) : playedPanels()));
     const canvas = useWindowValue(trailCanvasSize);
     const cardWidth = useWindowValue(cardWidthFor);
 
@@ -115,7 +117,7 @@ const Home = () => {
     useEffect(() => () => rememberPlayed(currentRef.current), []);
 
     // Returning to another panel, the trail map (heavy to build) waits until the transition is
-    // over, so it can't stall the cards' flight
+    // over, so it can't stall the crossfade
     const [drawTrail, setDrawTrail] = useState(!returnTo || initial === "trail" || !document.startViewTransition);
     useEffect(() => {
         if (drawTrail) return;
@@ -157,7 +159,7 @@ const Home = () => {
     // where the move is heading, so two quick presses go two panels.
     useEffect(() => {
         const root = scrollRef.current;
-        if (!root || expanded) return;
+        if (!root || view) return;
         let heading: number | null = null;
         const steps: Record<string, number> = { ArrowUp: -1, PageUp: -1, ArrowDown: 1, PageDown: 1 };
         const onKey = (event: KeyboardEvent) => {
@@ -185,7 +187,7 @@ const Home = () => {
             window.removeEventListener("keydown", onKey);
             root.removeEventListener("scrollend", arrived);
         };
-    }, [expanded]);
+    }, [view]);
 
     // A panel's centrepiece waits until its heading is (nearly) written
     const [written, setWritten] = useState(() => new Set<PanelId>([...played].filter(isPanel)));
@@ -193,31 +195,31 @@ const Home = () => {
     const onTrailFinished = useCallback(() => rememberPlayed("trail"), []);
     const onPoetryFinished = useCallback(() => rememberPlayed("poetry"), []);
     const onAboutFinished = useCallback(() => rememberPlayed("about"), []);
-    const enterTrail = () => navigate("/trail", { state: { fromHome: true } });
-    // Back through history when the map was entered from here, so the browser's Back agrees
-    const exitTrail = () => ((location.state as { fromHome?: boolean } | null)?.fromHome ? navigate(-1) : navigate("/"));
+    const enterView = (id: PanelId) => () => navigate(`/${id}`, { state: { fromHome: true } });
+    // Back through history when the view was entered from here, so the browser's Back agrees
+    const exitView = () => ((location.state as { fromHome?: boolean } | null)?.fromHome ? navigate(-1) : navigate("/"));
 
-    // A navbar link chosen on the full-size map: the map leaves, and the page is already at the
-    // panel when it starts shrinking (TrailStage measures where to shrink to in a later effect)
+    // A navbar link chosen in a view: the view closes, and the page is already at the panel when
+    // it starts to (the stages measure where to close to in a later effect)
     const leavingFor = useRef<PanelId | null>(null);
     const showPanel = (id: string) => {
         if (!isPanel(id)) return;
-        if (!expanded) return goTo(indexOf(id));
+        if (!view) return goTo(indexOf(id));
         leavingFor.current = id;
-        exitTrail();
+        exitView();
     };
     useLayoutEffect(() => {
         const root = scrollRef.current;
-        if (expanded || !root || !leavingFor.current) return;
+        if (view || !root || !leavingFor.current) return;
         root.scrollTop = indexOf(leavingFor.current) * root.clientHeight;
         leavingFor.current = null;
-    }, [expanded]);
+    }, [view]);
 
     return (
-        <div ref={scrollRef} className={`home-panels h-[100dvh] snap-y snap-mandatory bg-night ${expanded ? "overflow-hidden" : "overflow-y-auto"}`}>
-            <Navbar overlay sections={{ current, goTo: showPanel }} />
+        <div ref={scrollRef} className={`home-panels h-[100dvh] snap-y snap-mandatory bg-night ${view ? "overflow-hidden" : "overflow-y-auto"}`}>
+            <Navbar overlay sections={{ current, goTo: showPanel }} back={view === "poetry" ? exitView : undefined} />
 
-            <nav aria-label="Sections" className={`fixed right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-3 md:right-6 ${expanded ? "hidden" : ""}`}>
+            <nav aria-label="Sections" className={`fixed right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-3 md:right-6 ${view ? "hidden" : ""}`}>
                 {panels.map((panel, i) => (
                     <button
                         key={panel.id}
@@ -244,11 +246,11 @@ const Home = () => {
                     {drawTrail && (
                         <TrailStage
                             canvas={canvas}
-                            expanded={expanded}
+                            expanded={view === "trail"}
                             active={current === "trail" && written.has("trail")}
                             complete={played.has("trail")}
-                            onEnter={enterTrail}
-                            onExit={exitTrail}
+                            onEnter={enterView("trail")}
+                            onExit={exitView}
                             onFinished={onTrailFinished}
                         />
                     )}
@@ -259,7 +261,15 @@ const Home = () => {
                 <div className="mb-10" style={headingStyle(poetryWord)}>
                     <Calligraphy svg={poetryWord} active={current === "poetry"} complete={played.has("poetry")} onWritten={headingWritten("poetry")} className="h-full w-full text-white" />
                 </div>
-                <PoetryHand active={current === "poetry" && written.has("poetry")} cardWidth={cardWidth} complete={played.has("poetry")} onFinished={onPoetryFinished} />
+                <PoetryStage
+                    expanded={view === "poetry"}
+                    active={current === "poetry" && written.has("poetry")}
+                    complete={played.has("poetry")}
+                    cardWidth={cardWidth}
+                    onEnter={enterView("poetry")}
+                    onExit={exitView}
+                    onFinished={onPoetryFinished}
+                />
             </Panel>
 
             <Panel id="about">
