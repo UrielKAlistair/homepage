@@ -4,7 +4,8 @@ import type { Node, XYPosition } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { CircleHelp, RotateCcw } from "lucide-react";
 
-import { BackButton } from "@/components/exit-button";
+import { BackButton } from "@/components/back-button";
+import { isPhone } from "@/lib/layout";
 import { chapters } from "./TrailData";
 import { ChapterNode, TopicNode, TrailEdge } from "./NodeTypes";
 import type { ChapterNodeData } from "./NodeTypes";
@@ -299,7 +300,7 @@ const TrailMap = forwardRef<TrailMapHandle, TrailMapProps>(({ view, aspectRatio,
                         onNodesChange={onNodesChange}
                         onNodeDragStop={requestSave}
                         nodeDragThreshold={0}
-                        nodesDraggable={live}
+                        nodesDraggable={live && !isPhone()}
                         panOnDrag={live}
                         zoomOnScroll={live}
                         zoomOnPinch={live}

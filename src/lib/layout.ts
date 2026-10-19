@@ -5,5 +5,8 @@ export function navHeight() {
     return value.endsWith("rem") ? parseFloat(value) * parseFloat(root.fontSize) : parseFloat(value);
 }
 
+// Narrower than Tailwind's md breakpoint
+export const isPhone = () => window.innerWidth < 768;
+
 // The full-size trail map's gap from the window's edges, below the navbar
-export const stageInset = () => (window.innerWidth >= 768 ? 24 : 12);
+export const stageInset = () => (isPhone() ? 12 : 24);

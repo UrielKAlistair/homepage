@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { BaseEdge, Handle, Position, getBezierPath, useReactFlow } from "@xyflow/react";
 import type { Edge, EdgeProps, Node, NodeProps } from "@xyflow/react";
 import { ArrowUpRight } from "lucide-react";
+import { isPhone } from "@/lib/layout";
 import type { TrailColor } from "./TrailData";
 import { panelHeaderHeight } from "./TrailLayout";
 import { TrailActions, chapterColors } from "./TrailTheme";
@@ -90,7 +91,9 @@ export const TopicNode = ({ data, parentId }: NodeProps<Node<TopicNodeData>>) =>
     const { getZoom } = useReactFlow();
 
     // Topics stay fixed in their panel; dragging one drags its chapter. Screen movement is divided
-    // by the zoom, so the panel stays under the cursor at any zoom level.
+    // by the zoom, so the panel stays under the cursor at any zoom level. On phones nothing drags
+    // (there's no room to), so a topic passes touches through and swiping on it pans the map.
+    const draggable = !isPhone();
     const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
         if (!parentId || event.button !== 0) return;
         focusChapter(parentId);
@@ -134,10 +137,10 @@ export const TopicNode = ({ data, parentId }: NodeProps<Node<TopicNodeData>>) =>
             <Body
                 {...notes}
                 title={notes ? `Read the notes on ${data.title}` : undefined}
-                onPointerDown={startDrag}
+                onPointerDown={draggable ? startDrag : undefined}
                 draggable={false}
                 style={intro && parentId ? { animationDelay: `${intro.topic(parentId, data.index)}s` } : undefined}
-                className={`nopan flex h-full w-full touch-none select-none items-center gap-2.5 rounded-xl border px-3.5 text-sm transition-colors ${notes ? "group cursor-pointer border-white/15 bg-white/[0.06] text-white/90 hover:border-white/40 hover:bg-white/[0.12] hover:text-white" : "cursor-grab border-white/[0.07] bg-white/[0.025] text-white/60 active:cursor-grabbing"} ${intro ? "ti-fade" : ""}`}
+                className={`flex h-full w-full select-none items-center gap-2.5 rounded-xl border px-3.5 text-sm transition-colors ${draggable ? "nopan touch-none" : ""} ${notes ? "group cursor-pointer border-white/15 bg-white/[0.06] text-white/90 hover:border-white/40 hover:bg-white/[0.12] hover:text-white" : `border-white/[0.07] bg-white/[0.025] text-white/60 ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`} ${intro ? "ti-fade" : ""}`}
             >
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${chapterColors[data.color].dot}`} />
                 <span className="truncate">{data.title}</span>

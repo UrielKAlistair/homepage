@@ -8,7 +8,7 @@ import poetryWord from "@/assets/calligraphy-poetry.svg?raw";
 import trailWord from "@/assets/calligraphy-trail.svg?raw";
 import aboutWord from "@/assets/calligraphy-about.svg?raw";
 import { transitionDoneEvent } from "@/hooks/use-transition-navigate";
-import { navHeight, stageInset } from "@/lib/layout";
+import { isPhone, navHeight, stageInset } from "@/lib/layout";
 import TrailStage from "./home/TrailStage";
 import PoetryHand from "./home/PoetryHand";
 import AboutPanel from "./home/AboutPanel";
@@ -51,7 +51,7 @@ const headingStyle = (svg: string) => {
 };
 const headingHeight = (svg: string) => `calc(${headingWidth} * ${svgSize(svg).height / poetryWidth})`;
 
-const cardWidthFor = () => (window.innerWidth >= 768 ? 170 : 112);
+const cardWidthFor = () => (isPhone() ? 112 : 170);
 
 function useWindowValue<T>(read: () => T) {
     const [value, setValue] = useState(read);

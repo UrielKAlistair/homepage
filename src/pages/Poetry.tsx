@@ -2,7 +2,9 @@ import { useRef, useState } from "react"
 import { useLocation } from "react-router-dom"
 import Navbar from "@/components/navbar";
 import BorderTrace from "@/components/bordertrace";
-import ExitButton from "@/components/exit-button";
+import { BackButton } from "@/components/back-button";
+import { useLeaveView } from "@/hooks/use-leave-view";
+import { isPhone } from "@/lib/layout";
 import { poems, poemCardTransition } from "./poems";
 import type { Poem } from "./poems";
 
@@ -20,6 +22,7 @@ const returnStyle = poems
 
 const Poetry = () => {
   const poemGlowMs = 1200 // one full pulse of the ❖ loading glow
+  const leave = useLeaveView("poetry", returnStyle)
 
 
   const [displayedPoem, setDisplayedPoem] = useState<Poem | null>(null)
@@ -72,7 +75,7 @@ const Poetry = () => {
     }
 
     // No card slot on mobile: fade the current poem out, breathe the loading glow, then fade the new one in
-    if (window.innerWidth < 768) {
+    if (isPhone()) {
       setAnimating(true)
       setContentVisible(false)
 
@@ -150,7 +153,8 @@ const Poetry = () => {
 
   return (
     <div className="min-h-screen bg-night">
-      <Navbar />
+      {/* On phones Back lives in the navbar, since here it would cover the poem */}
+      <Navbar back={leave} />
 
       <div className="grid gap-6 p-3 md:h-[calc(100vh-var(--nav-h))] md:grid-cols-[minmax(0,1fr)_clamp(8rem,16vw,12rem)]">
 
@@ -160,7 +164,7 @@ const Poetry = () => {
             
             {/* Poem slot */}
             <div className="relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.07] bg-black/30 p-4">
-              <ExitButton returnTo="poetry" transitionStyle={returnStyle} className="absolute left-3 top-3 z-20" />
+              <BackButton onClick={leave} className="absolute left-3 top-3 z-20 hidden md:flex" />
               {/* Background */}
               <div
                 className={`absolute inset-4 flex items-center justify-center select-none text-5xl transition-colors duration-300 ${poemLoading ? "z-10 text-sky-200/80" : "text-foreground/15"}`}

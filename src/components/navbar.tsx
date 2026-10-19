@@ -1,4 +1,4 @@
-import { Github, Linkedin, Menu } from "lucide-react"
+import { ArrowLeft, Github, Linkedin, Menu } from "lucide-react"
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useTransitionNavigate } from "@/hooks/use-transition-navigate"
@@ -26,8 +26,9 @@ const navLinks = [
 // The panel another page belongs to
 const pagePanel = (path: string) => (path === "/poetry" ? "poetry" : path.startsWith("/notes/") ? "trail" : null)
 
-// `overlay`: the page runs underneath the bar instead of starting below it
-export default function Navbar({ sections, overlay = false }: { sections?: NavbarSections; overlay?: boolean }) {
+// `overlay`: the page runs underneath the bar instead of starting below it.
+// `back`: on phones, a Back button takes the name's place, for views with no room for their own.
+export default function Navbar({ sections, overlay = false, back }: { sections?: NavbarSections; overlay?: boolean; back?: () => void }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const navigate = useTransitionNavigate()
@@ -42,7 +43,17 @@ export default function Navbar({ sections, overlay = false }: { sections?: Navba
   return (
     <>
       <header className="fixed top-0 z-50 flex h-[var(--nav-h)] w-full items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 text-white backdrop-blur-md">
-        <h1 className="text-sm font-medium tracking-[0.35em]">
+        {back && (
+          <button
+            type="button"
+            onClick={back}
+            className="flex items-center gap-2 text-xs font-light uppercase tracking-[0.3em] text-white/80 transition-colors hover:text-white md:hidden"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+        )}
+        <h1 className={`text-sm font-medium tracking-[0.35em] ${back ? "hidden md:block" : ""}`}>
           <Link to="/" state={{ returnTo: "trail" }} className="transition-colors duration-200 hover:text-gray-300" onClick={select("trail")}>
             UKA
           </Link>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import SlideIn from "@/components/slidein";
 import RevealOverlay from "@/components/reveal";
+import { isPhone } from "@/lib/layout";
 
 // The About panel below its heading: the photo and the text slide in once `active` (the panel is
 // on screen and its heading written), and the knight's reveal sits beneath the text. Side by side,
@@ -12,7 +13,6 @@ import RevealOverlay from "@/components/reveal";
 
 const paragraphStagger = 120; // ms
 const photoSlideMs = 1000;
-const sideBySide = window.matchMedia("(min-width: 768px)");
 
 const paragraphs = [
     "I'm a curious builder driven by discovery. (and coffee.)",
@@ -29,7 +29,7 @@ const AboutPanel = ({ active }: { active: boolean }) => {
         const timer = window.setTimeout(() => setPhotoIn(true), photoSlideMs);
         return () => window.clearTimeout(timer);
     }, [active]);
-    const wallX = () => (sideBySide.matches ? photoRef.current!.getBoundingClientRect().right : 0);
+    const wallX = () => (isPhone() ? 0 : photoRef.current!.getBoundingClientRect().right);
 
     return (
         <div className="flex w-full max-w-6xl flex-col items-center gap-4 px-5 md:flex-row md:items-stretch md:gap-12 md:px-0">

@@ -1,4 +1,5 @@
 import type { Edge, Node, XYPosition } from "@xyflow/react";
+import { isPhone } from "@/lib/layout";
 import type { ChapterDoc, TrailColor } from "./TrailData";
 import type { TopicNodeData } from "./NodeTypes";
 
@@ -41,15 +42,20 @@ export const withTerritory = (area: Rect): Rect => ({
 
 // Below this zoom the labels get too small to read, so the view pans instead of shrinking further.
 // Phones need a little more, since their text is already small.
-const minReadableZoom = () => (window.innerWidth >= 768 ? 0.5 : 0.6);
+const minReadableZoom = () => (isPhone() ? 0.6 : 0.5);
 const viewPadding = 24;
 const fitPadding = 0.08; // as a share of the area, the way React Flow's fitBounds pads
 const resetButtonClearance = 60; // top padding when starting from the top-left, so the Reset button covers nothing
+// px: on phones the map opens (in the home panel and full size) with the chapters' left edge this
+// far from the frame's; negative starts partway in
+const phoneLeadIn = 10;
 
 export type Viewport = { x: number; y: number; zoom: number };
 
 // How the full-size map shows an area on a canvas of this size: all of it, if it can be read that
-// small; otherwise at the smallest readable zoom, starting from its left edge
+// small; otherwise at the smallest readable zoom, starting from its left edge. On phones that
+// start skips the territory margin and opens on the chapters themselves, so the narrow screen
+// isn't spent on empty fabric.
 export function framing(area: Rect, canvas: Size): Viewport {
     const fitZoom = Math.min((canvas.width - viewPadding * 2) / area.width, (canvas.height - viewPadding * 2) / area.height);
     if (fitZoom >= minReadableZoom()) {
@@ -59,15 +65,16 @@ export function framing(area: Rect, canvas: Size): Viewport {
     const zoom = minReadableZoom();
     const fitsVertically = area.height * zoom <= canvas.height - viewPadding * 2;
     return {
-        x: viewPadding - area.x * zoom,
+        x: isPhone() ? phoneLeadIn - (area.x + territoryMargin) * zoom : viewPadding - area.x * zoom,
         y: fitsVertically ? (canvas.height - area.height * zoom) / 2 - area.y * zoom : resetButtonClearance - area.y * zoom,
         zoom,
     };
 }
 
 // The map in the home page's panel: from its top-left corner down to the territory of the lowest
-// chapter above the Physics row; Physics is left for the full map to reveal. Growing to full
-// size, the map starts from this view and zooms out to `framing`.
+// chapter above the Physics row; Physics is left for the full map to reveal. On phones it starts
+// phoneLeadIn from the chapters' left edge instead of the corner. Growing to full size, the map
+// starts from this view and zooms out to `framing`.
 const previewHorizonColor: TrailColor = "blue";
 export function previewFraming(chapters: { rect: Rect; color: TrailColor }[], canvas: Size): Viewport {
     const area = withTerritory(boundsOf(chapters.map((c) => c.rect)));
@@ -79,7 +86,8 @@ export function previewFraming(chapters: { rect: Rect; color: TrailColor }[], ca
     const height = Math.min(area.height, fitted * previewZoomOut);
     const zoom = canvas.height / height;
     const spare = Math.max(0, canvas.width / zoom - area.width); // a view wider than the map is centred on it
-    return { x: -(area.x - spare / 2) * zoom, y: -area.y * zoom, zoom };
+    const x = isPhone() ? phoneLeadIn - (area.x + territoryMargin) * zoom : -(area.x - spare / 2) * zoom;
+    return { x, y: -area.y * zoom, zoom };
 }
 
 const topicNodeId = (chapterId: string, topicId: string) => `${chapterId}/${topicId}`;
