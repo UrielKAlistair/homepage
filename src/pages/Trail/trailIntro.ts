@@ -2,7 +2,8 @@ import { createContext } from "react";
 import type { Rect } from "./TrailLayout";
 
 // The map drawing itself in, on the home page: the hex fabric appears, chapters arrive left to
-// right, each territory spawns outward from its chapter cell by cell, then the arrows draw in.
+// right, each territory spawns outward from its chapter cell by cell, then the arrows draw in,
+// left to right; arrows pointing back left come last, so the eye ends on the right.
 // The page's parts are CSS animations (the ti-* rules in index.css) whose delays, in seconds,
 // come from here; the territory canvas reads `elapsed`, the intro's own clock, so it pauses and
 // rewinds with them. While the intro runs, this timing is provided through TrailIntroTiming;
@@ -18,6 +19,8 @@ const topicLag = 0.2; // after its chapter
 const topicStagger = 0.06;
 const territoryLag = 0.1; // after its chapter
 const edgeLag = 0.45; // after the later of its two chapters
+const backwardLag = 0.8; // an arrow pointing left: after the last chapter
+const edgeDuration = 1.05; // the line draws over 0.7 s; its arrowhead fades in from 0.55 s, over 0.5 s
 
 export type IntroTiming = {
     chapter: (id: string) => number;
@@ -35,13 +38,15 @@ export function introTiming(chapters: Map<string, Rect>, elapsed: () => number):
     const leftToRight = [...chapters.entries()].sort(([, a], [, b]) => a.x - b.x || a.y - b.y).map(([id]) => id);
     const arrival = new Map(leftToRight.map((id, rank) => [id, chapterStart + rank * chapterStagger]));
     const last = Math.max(...arrival.values());
+    const centre = (id: string) => chapters.get(id)!.x + chapters.get(id)!.width / 2;
     return {
         chapter: (id) => arrival.get(id)!,
         topic: (chapterId, index) => arrival.get(chapterId)! + topicLag + index * topicStagger,
         territory: (chapterId) => arrival.get(chapterId)! + territoryLag,
-        edge: (source, target) => Math.max(arrival.get(source)!, arrival.get(target)!) + edgeLag,
+        edge: (source, target) =>
+            centre(target) < centre(source) ? last + backwardLag : Math.max(arrival.get(source)!, arrival.get(target)!) + edgeLag,
         labels: last + 0.8,
-        end: Math.max(last + 1.3, last + territoryLag + cellSpawn.spread + cellSpawn.jitter + cellSpawn.duration),
+        end: Math.max(last + backwardLag + edgeDuration, last + territoryLag + cellSpawn.spread + cellSpawn.jitter + cellSpawn.duration),
         elapsed,
     };
 }

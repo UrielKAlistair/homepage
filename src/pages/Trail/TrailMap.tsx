@@ -6,12 +6,12 @@ import { CircleHelp, RotateCcw } from "lucide-react";
 
 import { BackButton } from "@/components/back-button";
 import { isPhone } from "@/lib/layout";
-import { chapters } from "./TrailData";
+import { chapters, topicsOf } from "./TrailData";
 import { ChapterNode, TopicNode, TrailEdge } from "./NodeTypes";
 import type { ChapterNodeData } from "./NodeTypes";
 import { TrailActions } from "./TrailTheme";
 import { boundsOf, directPrerequisites, framing, layoutTrail, previewFraming, trailEdges, withTerritory } from "./TrailLayout";
-import type { Rect } from "./TrailLayout";
+import type { Rect, SectionBand } from "./TrailLayout";
 import { clearArrangement, introHidden, loadArrangement, saveArrangement } from "./trailStorage";
 import { TrailIntroTiming, introTiming } from "./trailIntro";
 import Territories from "./Territories";
@@ -49,7 +49,7 @@ const rectOf = (node: Node): Rect => ({
     height: Number(node.style!.height),
 });
 
-const chapterNode = (id: string, rect: Rect, zIndex: number): Node<ChapterNodeData> => {
+const chapterNode = (id: string, rect: Rect, titleWidth: number, sections: SectionBand[], zIndex: number): Node<ChapterNodeData> => {
     const chapter = chapters.find((c) => c.id === id)!;
     return {
         id,
@@ -60,7 +60,14 @@ const chapterNode = (id: string, rect: Rect, zIndex: number): Node<ChapterNodeDa
         initialWidth: rect.width,
         initialHeight: rect.height,
         zIndex,
-        data: { title: chapter.title, color: chapter.color, topicCount: chapter.topics?.length ?? 0, notes: chapter.notes },
+        data: {
+            title: chapter.title,
+            color: chapter.color,
+            topicCount: topicsOf(chapter).length,
+            notes: chapter.notes,
+            titleWidth,
+            sections,
+        },
     };
 };
 
@@ -72,7 +79,7 @@ function initialTrail(aspectRatio: number) {
     const chapterNodes = chapterIds.map((id) => {
         const placement = layout.placements[id];
         const position = saved ? { x: saved.chapters[id].x, y: saved.chapters[id].y } : placement.position;
-        return chapterNode(id, { ...position, ...placement.size }, zFor(order, id));
+        return chapterNode(id, { ...position, ...placement.size }, placement.titleWidth, placement.sections, zFor(order, id));
     });
     // Children must follow their parents in the array
     const topicNodes = chapterIds.flatMap((id) => layout.placements[id].topics);
@@ -148,7 +155,7 @@ const TrailMap = forwardRef<TrailMapHandle, TrailMapProps>(({ view, aspectRatio,
             if (!container) return;
             const target = () =>
                 previewFraming(
-                    nodesRef.current.filter((node) => node.type === "chapter").map((node) => ({ rect: rectOf(node), color: colorOf(node.id) })),
+                    nodesRef.current.filter((node) => node.type === "chapter").map((node) => ({ id: node.id, rect: rectOf(node), color: colorOf(node.id) })),
                     sizeOf(container)
                 );
             setViewport(target(), { duration });
