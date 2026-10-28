@@ -69,6 +69,12 @@
   }
 }
 
+/* The trail's camera is its own compositor layer, so a pan or zoom moves the cards already drawn
+   instead of repainting them in every frame; Chrome redraws them sharp once a zoom ends */
+.react-flow__viewport {
+  will-change: transform;
+}
+
 /* Soft prerequisites are dotted */
 .react-flow__edge.trail-soft-edge .react-flow__edge-path {
   stroke-dasharray: 4 5;
@@ -129,6 +135,7 @@
 @media (prefers-reduced-motion: reduce) {
   .home-scroll-cue { animation: none; }
 }
+[data-paused] :is(.home-scroll-cue, .matrix-text) { animation-play-state: paused; }
 
 /* A poem card picked up: hovered in the Poetry view's tray, or lifted in the home page's hand */
 .poem-card { transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, opacity 200ms ease; }

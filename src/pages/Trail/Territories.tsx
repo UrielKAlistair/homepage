@@ -6,6 +6,7 @@ import { buildGrid, computeLabels, computeOwners, fabric, fabricOpacity, gridExt
 import type { TerritoryChapter } from "./territoryGrid";
 import { TerritoryRenderer } from "./territoryRenderer";
 import { TrailIntroTiming, cellSpawn } from "./trailIntro";
+import type { CameraFeed } from "./phonePanZoom";
 
 // The hex fabric behind the trail, and the territories coloured into it (see territoryGrid.ts),
 // drawn on a WebGL canvas (territoryRenderer.ts); the domain labels sit above it as SVG text.
@@ -13,7 +14,8 @@ import { TrailIntroTiming, cellSpawn } from "./trailIntro";
 
 const transformSelector = (state: { transform: [number, number, number] }) => state.transform;
 
-const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
+// `camera`, on the phone, moves the territory and its labels during a gesture, before React Flow's store knows
+const Territories = ({ chapters, camera }: { chapters: TerritoryChapter[]; camera: CameraFeed }) => {
     const intro = useContext(TrailIntroTiming);
     const store = useStoreApi();
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,6 +62,8 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
         };
     }, [store]);
 
+    useLayoutEffect(() => camera.subscribe((next) => rendererRef.current?.setCamera(next)), [camera]);
+
     useLayoutEffect(() => {
         if (grid && looks) rendererRef.current?.paint(grid, looks, spawn);
     }, [grid, looks, spawn]);
@@ -69,17 +73,19 @@ const Territories = ({ chapters }: { chapters: TerritoryChapter[] }) => {
     return (
         <>
             {webgl ? <canvas ref={canvasRef} className={`${layer} ${intro ? "ti-fade" : ""}`} style={{ zIndex: 0 }} aria-hidden="true" /> : <FabricFallback />}
-            {webgl && <TerritoryLabels labels={labels} />}
+            {webgl && <TerritoryLabels labels={labels} camera={camera} />}
         </>
     );
 };
 
-const TerritoryLabels = ({ labels }: { labels: ReturnType<typeof computeLabels> }) => {
+const TerritoryLabels = ({ labels, camera }: { labels: ReturnType<typeof computeLabels>; camera: CameraFeed }) => {
     const [tx, ty, zoom] = useStore(transformSelector);
+    const group = useRef<SVGGElement>(null);
+    useLayoutEffect(() => camera.subscribe(({ x, y, zoom }) => group.current?.setAttribute("transform", `translate(${x} ${y}) scale(${zoom})`)), [camera]);
     const intro = useContext(TrailIntroTiming);
     return (
         <svg className={`${layer} ${intro ? "ti-fade" : ""}`} style={{ zIndex: 0, ...(intro ? { animationDelay: `${intro.labels}s` } : {}) }} aria-hidden="true">
-            <g transform={`translate(${tx} ${ty}) scale(${zoom})`}>
+            <g ref={group} transform={`translate(${tx} ${ty}) scale(${zoom})`}>
                 {labels.map((label) => (
                     <text key={label.color} x={label.x} y={label.y} fill={labelColors[label.color]} className="trail-territory-label">
                         {label.text}

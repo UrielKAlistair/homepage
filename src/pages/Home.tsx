@@ -72,8 +72,10 @@ function useWindowValue<T>(read: () => T) {
     return value;
 }
 
-const Panel = ({ id, children, onNext }: { id: PanelId; children: ReactNode; onNext?: () => void }) => (
-    <section data-panel={id} className="relative flex h-[100dvh] snap-start overflow-x-clip snap-always flex-col items-center justify-center px-4 pb-8 pt-[var(--nav-h)]">
+// A panel off screen, or covered by a view, pauses its endless animations (index.css), so they
+// don't keep redrawing a page nobody sees
+const Panel = ({ id, paused, children, onNext }: { id: PanelId; paused: boolean; children: ReactNode; onNext?: () => void }) => (
+    <section data-panel={id} data-paused={paused || undefined} className="relative flex h-[100dvh] snap-start overflow-x-clip snap-always flex-col items-center justify-center px-4 pb-8 pt-[var(--nav-h)]">
         {/* A soft navy light behind each panel's centrepiece */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_55%_at_50%_52%,rgba(37,60,130,0.22),transparent_70%)]" />
         <div className="relative flex w-full flex-col items-center">{children}</div>
@@ -237,7 +239,7 @@ const Home = () => {
                 ))}
             </nav>
 
-            <Panel id="trail" onNext={() => goTo(1)}>
+            <Panel id="trail" paused={current !== "trail" || view !== null} onNext={() => goTo(1)}>
                 <div className="mb-10" style={headingStyle(trailWord)}>
                     <Calligraphy svg={trailWord} active={current === "trail"} complete={played.has("trail")} onWritten={headingWritten("trail")} className="h-full w-full text-white" />
                 </div>
@@ -257,7 +259,7 @@ const Home = () => {
                 </div>
             </Panel>
 
-            <Panel id="poetry" onNext={() => goTo(2)}>
+            <Panel id="poetry" paused={current !== "poetry" || view !== null} onNext={() => goTo(2)}>
                 <div className="mb-10" style={headingStyle(poetryWord)}>
                     <Calligraphy svg={poetryWord} active={current === "poetry"} complete={played.has("poetry")} onWritten={headingWritten("poetry")} className="h-full w-full text-white" />
                 </div>
@@ -272,7 +274,7 @@ const Home = () => {
                 />
             </Panel>
 
-            <Panel id="about">
+            <Panel id="about" paused={current !== "about" || view !== null}>
                 <div className="mb-4 md:mb-8" style={headingStyle(aboutWord)}>
                     <Calligraphy svg={aboutWord} active={current === "about"} complete={played.has("about")} onWritten={headingWritten("about")} onFinished={onAboutFinished} className="h-full w-full text-white" />
                 </div>

@@ -15,6 +15,7 @@ import type { Rect, SectionBand } from "./TrailLayout";
 import { clearArrangement, introHidden, loadArrangement, saveArrangement } from "./trailStorage";
 import { TrailIntroTiming, introTiming } from "./trailIntro";
 import Territories from "./Territories";
+import { usePhonePanZoom } from "./phonePanZoom";
 import TrailIntro from "./TrailIntro";
 
 // The trail map: chapters (React Flow nodes) laid out in journeys, prerequisite arrows, and hex
@@ -29,6 +30,8 @@ const trailEdgeTypes = { trail: TrailEdge };
 const prerequisites = directPrerequisites(chapters);
 const baseEdges = trailEdges(prerequisites, chapters);
 const chapterIds = chapters.map((chapter) => chapter.id);
+
+const zoomRange = { min: 0.2, max: 2 };
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const morphMs = reduceMotion ? 0 : 450;
@@ -118,12 +121,18 @@ const TrailMap = forwardRef<TrailMapHandle, TrailMapProps>(({ view, aspectRatio,
     const orderRef = useRef(order);
     orderRef.current = order;
 
+    // The territory canvas reads the clock every frame. getAnimations() would bring the page's
+    // styles up to date first, so the clock's animation is looked up once and kept.
     const clockRef = useRef<HTMLDivElement>(null);
+    const clockAnimation = useRef<Animation | undefined>(undefined);
     const timing = useMemo(
         () =>
             introTiming(
                 new Map(start.nodes.filter((node) => node.type === "chapter").map((node) => [node.id, rectOf(node)])),
-                () => Number(clockRef.current?.getAnimations()[0]?.currentTime ?? 0) / 1000
+                () => {
+                    clockAnimation.current ??= clockRef.current?.getAnimations()[0];
+                    return Number(clockAnimation.current?.currentTime ?? 0) / 1000;
+                }
             ),
         [start]
     );
@@ -294,12 +303,19 @@ const TrailMap = forwardRef<TrailMapHandle, TrailMapProps>(({ view, aspectRatio,
         [focusChapter, flyToChapter, moveChapterBy, requestSave]
     );
     const live = view === "full";
+    // On the phone the fingers pan and pinch through usePhonePanZoom, not React Flow
+    const phoneGestures = live && isPhone();
+    const phonePanZoom = usePhonePanZoom(phoneGestures, zoomRange.min, zoomRange.max);
 
     return (
         <TrailActions.Provider value={actions}>
             <TrailIntroTiming.Provider value={intro ? timing : null}>
                 <div ref={containerRef} className="relative h-full w-full">
                     <ReactFlow
+                        ref={phonePanZoom.ref}
+                        // Pointer events can't stop the browser's own touch scrolling; on a card, outside the
+                        // pane, only touch-action can
+                        style={phoneGestures ? { touchAction: "none" } : undefined}
                         nodes={nodes}
                         edges={edges}
                         nodeTypes={trailNodeTypes}
@@ -308,21 +324,21 @@ const TrailMap = forwardRef<TrailMapHandle, TrailMapProps>(({ view, aspectRatio,
                         onNodeDragStop={requestSave}
                         nodeDragThreshold={0}
                         nodesDraggable={live && !isPhone()}
-                        panOnDrag={live}
+                        panOnDrag={live && !phoneGestures}
                         zoomOnScroll={live}
-                        zoomOnPinch={live}
+                        zoomOnPinch={live && !phoneGestures}
                         zoomOnDoubleClick={live}
                         preventScrolling={live}
                         // React Flow's keys listen on the whole document and swallow the key, so
                         // the map in the panel would take them from the home page
                         {...(live ? {} : { panActivationKeyCode: null, deleteKeyCode: null, selectionKeyCode: null, multiSelectionKeyCode: null, zoomActivationKeyCode: null })}
-                        minZoom={0.2}
-                        maxZoom={2}
+                        minZoom={zoomRange.min}
+                        maxZoom={zoomRange.max}
                         nodesConnectable={false}
                         elementsSelectable={false}
                         proOptions={{ hideAttribution: true }}
                     >
-                        <Territories chapters={territory} />
+                        <Territories chapters={territory} camera={phonePanZoom.feed} />
                     </ReactFlow>
 
                     {live && (
