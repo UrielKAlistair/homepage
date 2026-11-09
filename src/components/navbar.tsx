@@ -97,6 +97,15 @@ export default function Navbar({ sections, overlay = false, back }: { sections?:
           >
             <Linkedin className="h-4 w-4" />
           </a>
+          <a
+            href="/cv.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="CV"
+            className="text-xs font-light tracking-[0.2em] transition-colors duration-200 hover:text-gray-400"
+          >
+            CV
+          </a>
 
           {/* Mobile menu */}
           <Sheet open={open} onOpenChange={setOpen}>
