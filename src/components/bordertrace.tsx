@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { reduceMotion } from "@/lib/motion";
 
 interface BorderTraceProps {
   radius: number; // px, border radius of the box being traced
@@ -35,7 +36,6 @@ const BorderTrace = ({ radius, duration = 900, glowLength = 60, threshold = 0, o
   const glowRefs = useRef<(SVGPathElement | null)[]>([]);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [visible, setVisible] = useState(false);
-  const [reduceMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [traced, setTraced] = useState(reduceMotion);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
@@ -66,7 +66,7 @@ const BorderTrace = ({ radius, duration = 900, glowLength = 60, threshold = 0, o
       resizeObserver.disconnect();
       visibilityObserver.disconnect();
     };
-  }, [reduceMotion, threshold]);
+  }, [threshold]);
 
   const hasSize = size !== null;
   useLayoutEffect(() => {

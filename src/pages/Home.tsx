@@ -55,6 +55,9 @@ const headingHeight = (svg: string) => `calc(${headingWidth} * ${svgSize(svg).he
 
 const cardWidthFor = () => (isPhone() ? 112 : 170);
 
+// With no scroll event for this long, a move between panels is over
+const scrollSettleMs = 150;
+
 function useWindowValue<T>(read: () => T) {
     const [value, setValue] = useState(read);
     useEffect(() => {
@@ -158,7 +161,8 @@ const Home = () => {
     // The keyboard moves a panel at a time wherever focus is: up and Page Up back, down, Page Down
     // and Space on (Shift+Space back), Home and End to the ends. Typing, dialogs, buttons' own
     // Space, shortcuts and the full-size map keep their keys. A press during a move counts from
-    // where the move is heading, so two quick presses go two panels.
+    // where the move is heading, so two quick presses go two panels. The move is over once the
+    // page has stopped scrolling for a moment (Safari has no scrollend event to say so).
     useEffect(() => {
         const root = scrollRef.current;
         if (!root || view) return;
@@ -182,12 +186,17 @@ const Home = () => {
             heading = Math.min(panels.length - 1, Math.max(0, to));
             root.scrollTo({ top: heading * root.clientHeight, behavior: "smooth" });
         };
-        const arrived = () => (heading = null);
+        let settle = 0;
+        const onScroll = () => {
+            window.clearTimeout(settle);
+            settle = window.setTimeout(() => (heading = null), scrollSettleMs);
+        };
         window.addEventListener("keydown", onKey);
-        root.addEventListener("scrollend", arrived);
+        root.addEventListener("scroll", onScroll, { passive: true });
         return () => {
             window.removeEventListener("keydown", onKey);
-            root.removeEventListener("scrollend", arrived);
+            root.removeEventListener("scroll", onScroll);
+            window.clearTimeout(settle);
         };
     }, [view]);
 

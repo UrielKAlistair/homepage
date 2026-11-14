@@ -133,7 +133,7 @@ export const fabricOpacity = (zoom: number) => Math.min(1, Math.max(0, (zoom - 0
 export function computeLabels(grid: Grid, looks: CellLook[], chapters: TerritoryChapter[]) {
     const seen = new Uint8Array(grid.cells.length);
     const largest = new Map<TrailColor, GridCell[]>();
-    grid.cells.forEach((cell, start) => {
+    grid.cells.forEach((_, start) => {
         const color = looks[start].color;
         if (!color || seen[start]) return;
         const region: GridCell[] = [];

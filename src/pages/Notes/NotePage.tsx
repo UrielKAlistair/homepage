@@ -12,7 +12,7 @@ import python from "highlight.js/lib/languages/python";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import "katex/dist/katex.min.css";
 import Navbar from "@/components/navbar";
-import { chapters } from "../Trail/TrailData";
+import { chapters, topicsOf } from "../Trail/TrailData";
 import { chapterColors } from "../Trail/TrailTheme";
 import { parseNotebook } from "./notebook";
 import type { Cell, Notebook, Output } from "./notebook";
@@ -29,7 +29,7 @@ const urlTransform = (url: string) => (url.startsWith("data:image/") ? url : def
 function placeOnTrail(slug: string) {
     for (const chapter of chapters) {
         if (chapter.notes === slug) return { title: chapter.title, chapter: undefined, color: chapter.color };
-        const topic = chapter.topics?.find((t) => t.notes === slug);
+        const topic = topicsOf(chapter).find((t) => t.notes === slug);
         if (topic) return { title: topic.title, chapter: chapter.title, color: chapter.color };
     }
     return null;
@@ -195,7 +195,9 @@ const NotePage = () => {
     const active = useActiveHeading(contents);
 
     const downloadUrl = useMemo(() => (loaded ? URL.createObjectURL(new Blob([loaded.raw], { type: "application/x-ipynb+json" })) : undefined), [loaded]);
-    useEffect(() => () => downloadUrl && URL.revokeObjectURL(downloadUrl), [downloadUrl]);
+    useEffect(() => {
+        if (downloadUrl) return () => URL.revokeObjectURL(downloadUrl);
+    }, [downloadUrl]);
 
     const missing = !entry || (state?.slug === slug && "failed" in state);
     const color = place ? chapterColors[place.color] : null;

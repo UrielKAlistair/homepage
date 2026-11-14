@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { reduceMotion } from "@/lib/motion";
 import { poems } from "../poems";
 import PoetryHand from "./PoetryHand";
 import type { PoetryHandHandle } from "./PoetryHand";
@@ -14,7 +15,6 @@ import { flyBack, flyIn, poseOf } from "./poetryFlight";
 //
 // Phases: panel -> entering -> open -> leaving -> panel. `expanded` (from the URL) drives them.
 
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const fadeMs = 600;
 
 type PoetryStageProps = {

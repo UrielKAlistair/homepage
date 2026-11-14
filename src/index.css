@@ -7,9 +7,7 @@
   :root {
     --nav-h: 3rem; /* the navbar's height; pages lay out around it */
     --radius: 0.5rem; /* rounded-lg; rounded-md and rounded-sm step down from it */
-  }
 
-  .dark {
     --background: 0 0% 0%;
     --foreground: 210 40% 98%;
 
@@ -47,10 +45,6 @@
 
   body {
     @apply bg-background text-foreground;
-  }
-
-  html {
-    @apply dark;
   }
 }
 

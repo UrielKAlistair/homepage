@@ -29,8 +29,13 @@ export function useTransitionNavigate() {
             const transition = document.startViewTransition(() => {
                 const ready = readyEvent
                     ? new Promise<void>((resolve) => {
-                          const timer = window.setTimeout(resolve, readyTimeoutMs);
-                          window.addEventListener(readyEvent, () => (window.clearTimeout(timer), resolve()), { once: true });
+                          const finish = () => {
+                              window.clearTimeout(timer);
+                              window.removeEventListener(readyEvent, finish);
+                              resolve();
+                          };
+                          const timer = window.setTimeout(finish, readyTimeoutMs);
+                          window.addEventListener(readyEvent, finish);
                       })
                     : undefined;
                 flushSync(() => navigate(to, { state }));

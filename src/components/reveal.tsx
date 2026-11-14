@@ -45,21 +45,29 @@ const RevealOverlay = (config: RevealConfig) => {
   const frameCount = 46
   const framePath = (index: number) => `/hollow-knight/frame${String(index).padStart(4, "0")}.webp`
 
-  // 1. Load Images (for animation)
+  // 1. Load Images (for animation), once the row first comes on screen
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   useEffect(() => {
-    const loaded: HTMLImageElement[] = [];
-    let count = 0;
+    const loadObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      loadObserver.disconnect();
 
-    for (let i = 0; i < frameCount; i++) {
-      const img = new Image();
-      img.src = framePath(i);
-      img.onload = () => {
-        count++;
-        if (count === frameCount) setImages(loaded);
-      };
-      loaded.push(img);
-    }
+      const loaded: HTMLImageElement[] = [];
+      let count = 0;
+
+      for (let i = 0; i < frameCount; i++) {
+        const img = new Image();
+        img.src = framePath(i);
+        img.onload = () => {
+          count++;
+          if (count === frameCount) setImages(loaded);
+        };
+        loaded.push(img);
+      }
+    });
+
+    loadObserver.observe(rowRef.current!);
+    return () => loadObserver.disconnect();
   }, []);
 
   // 2. Update font size and letter positions on resize (needed for revealing with the moving canvas)
@@ -68,6 +76,8 @@ const RevealOverlay = (config: RevealConfig) => {
   const [isReady, setIsReady] = useState(false); // animation shouldn't start moving until we have positions
   const [canvasWidth, setCanvasWidth] = useState(200);
   const canvasHeight = canvasWidth * 1.5
+  // The canvas holds one pixel per screen pixel, so the knight stays sharp on dense screens
+  const pixelRatio = window.devicePixelRatio;
   // The knight's start (at the wall) and the screen's right edge, from the row's left edge
   const [startX, setStartX] = useState(0);
   const [screenRight, setScreenRight] = useState(window.innerWidth);
@@ -175,8 +185,8 @@ const RevealOverlay = (config: RevealConfig) => {
       }
       frameRef.current = frame;
 
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      ctx.drawImage(images[frame], 0, 0, canvasWidth, canvasHeight);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(images[frame], 0, 0, canvas.width, canvas.height);
 
       if (startMove && frame >= moveFrames.start) {
         currentX += moveSpeed;
@@ -325,8 +335,8 @@ const RevealOverlay = (config: RevealConfig) => {
       >
         <canvas
           ref={canvasRef}
-          width={canvasWidth}
-          height={canvasHeight}
+          width={Math.round(canvasWidth * pixelRatio)}
+          height={Math.round(canvasHeight * pixelRatio)}
           style={{
             width: `${canvasWidth}px`,
             height: `${canvasHeight}px`,

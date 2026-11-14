@@ -6,6 +6,7 @@ import { CircleHelp, RotateCcw } from "lucide-react";
 
 import { BackButton } from "@/components/back-button";
 import { isPhone } from "@/lib/layout";
+import { reduceMotion } from "@/lib/motion";
 import { chapters, topicsOf } from "./TrailData";
 import { ChapterNode, TopicNode, TrailEdge } from "./NodeTypes";
 import type { ChapterNodeData } from "./NodeTypes";
@@ -33,7 +34,6 @@ const chapterIds = chapters.map((chapter) => chapter.id);
 
 const zoomRange = { min: 0.2, max: 2 };
 
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const morphMs = reduceMotion ? 0 : 450;
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);

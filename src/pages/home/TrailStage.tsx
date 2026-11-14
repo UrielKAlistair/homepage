@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { navHeight, stageInset } from "@/lib/layout";
+import { reduceMotion } from "@/lib/motion";
 import { rewindMs } from "@/lib/playback";
 import TrailMap from "../Trail/TrailMap";
 import type { TrailMapHandle } from "../Trail/TrailMap";
@@ -17,7 +18,6 @@ import type { Size } from "../Trail/TrailLayout";
 //
 // Phases: panel -> growing -> full -> shrinking -> panel. `expanded` (from the URL) drives them.
 
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const growMs = reduceMotion ? 0 : 650;
 const growEasing = "cubic-bezier(0.45, 0, 0.25, 1)";
 const zoomOutMs = reduceMotion ? 0 : 1100; // after growing, from the panel's view to the whole trail
@@ -31,12 +31,11 @@ type TrailStageProps = {
     onEnter: () => void;
     onExit: () => void;
     onFinished: () => void; // the intro is over
-    slotClassName?: string;
 };
 
 type Phase = "panel" | "growing" | "full" | "shrinking";
 
-const TrailStage = ({ canvas, expanded, active, complete, onEnter, onExit, onFinished, slotClassName = "" }: TrailStageProps) => {
+const TrailStage = ({ canvas, expanded, active, complete, onEnter, onExit, onFinished }: TrailStageProps) => {
     const slotRef = useRef<HTMLDivElement>(null);
     const stageRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<TrailMapHandle>(null);
@@ -125,7 +124,7 @@ const TrailStage = ({ canvas, expanded, active, complete, onEnter, onExit, onFin
 
     const atFullSize = phase !== "panel";
     return (
-        <div ref={slotRef} className={`group relative ${slotClassName}`} style={{ aspectRatio: `${width} / ${height}` }}>
+        <div ref={slotRef} className="group relative" style={{ aspectRatio: `${width} / ${height}` }}>
             {/* Covers the home page while the map is full size */}
             <div
                 className={`fixed inset-0 z-30 bg-night transition-opacity ease-in-out ${phase === "growing" || phase === "full" ? "opacity-100" : "pointer-events-none opacity-0"}`}

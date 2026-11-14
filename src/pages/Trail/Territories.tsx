@@ -12,6 +12,7 @@ import type { CameraFeed } from "./phonePanZoom";
 // drawn on a WebGL canvas (territoryRenderer.ts); the domain labels sit above it as SVG text.
 // Without WebGL the map shows the bare fabric only, as an SVG pattern.
 
+const layer = "pointer-events-none absolute inset-0 h-full w-full";
 const transformSelector = (state: { transform: [number, number, number] }) => state.transform;
 
 // `camera`, on the phone, moves the territory and its labels during a gesture, before React Flow's store knows
@@ -112,7 +113,5 @@ const FabricFallback = () => {
         </svg>
     );
 };
-
-const layer = "pointer-events-none absolute inset-0 h-full w-full";
 
 export default memo(Territories);

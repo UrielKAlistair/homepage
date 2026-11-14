@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { reduceMotion } from "@/lib/motion";
 import { poems } from "../poems";
 
 // The poem cards arrive as a face-down deck, then are dealt one by one into a fanned hand,
@@ -6,8 +7,6 @@ import { poems } from "../poems";
 // opens the Poetry view (see PoetryStage, which flies the cards there and back).
 // The deal is all or nothing: leaving the panel before it finishes cancels it, and it starts
 // over from the top next time.
-
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const deckMs = 500; // the deck rising into place
 const dealStart = 650;
