@@ -28,7 +28,8 @@ const pagePanel = (path: string) => (path.startsWith("/notes/") ? "trail" : null
 
 // `overlay`: the page runs underneath the bar instead of starting below it.
 // `back`: on phones, a Back button takes the name's place, for views with no room for their own.
-export default function Navbar({ sections, overlay = false, back }: { sections?: NavbarSections; overlay?: boolean; back?: () => void }) {
+// `scrolls`: the bar sits at the top of the page and scrolls away with it, instead of staying on screen.
+export default function Navbar({ sections, overlay = false, back, scrolls = false }: { sections?: NavbarSections; overlay?: boolean; back?: () => void; scrolls?: boolean }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const navigate = useTransitionNavigate()
@@ -42,7 +43,7 @@ export default function Navbar({ sections, overlay = false, back }: { sections?:
 
   return (
     <>
-      <header className="fixed top-0 z-50 flex h-[var(--nav-h)] w-full items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 text-white backdrop-blur-md">
+      <header className={`${scrolls ? "absolute" : "fixed"} top-0 z-50 flex h-[var(--nav-h)] w-full items-center justify-between border-b border-white/[0.06] bg-background/70 px-6 text-white backdrop-blur-md`}>
         {back && (
           <button
             type="button"
